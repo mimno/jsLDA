@@ -153,12 +153,22 @@ var QueryString = function () {
     return query_string;
 } ();
 
+var zeros = function(n) {
+  var x = new Array(n);
+  for (var i = 0; i < n; i++) { x[i] = 0.0; }
+  return x;
+};
+
 var documentTopicSmoothing = 0.1;
 var topicWordSmoothing = 0.01;
 
 var vocabularySize = 0;
 
 var vocabularyCounts = {};
+
+// Constants for calculating topic correlation. A doc with 5% or more tokens in a topic is "about" that topic.
+var correlationMinTokens = 2;
+var correlationMinProportion = 0.05;
 
 var numTopics = QueryString.topics ? parseInt(QueryString.topics) : 25;
 if (isNaN(numTopics)) {
@@ -225,8 +235,7 @@ var parseLine = function( line ) {
   var tokens = [];
   var rawTokens = text.toLowerCase().match(XRegExp("\\p{L}[\\p{L}\\p{P}]*\\p{L}", "g"));
   if (rawTokens == null) { return; }
-  var topicCounts = new Array(numTopics);
-  for (var topic = 0; topic < numTopics; topic++) { topicCounts[topic] = 0; }
+  var topicCounts = zeros(numTopics);
 
   rawTokens.forEach(function (word) {
     if (word !== "" && ! stopwords[word] && word.length > 2) {
@@ -366,60 +375,54 @@ var reorderDocuments = function() {
    }
 }
 
+/* This function will compute pairwise correlations between topics.
+ * Unlike the correlated topic model (CTM) LDA doesn't have parameters
+ * that represent topic correlations. But that doesn't mean that topics are
+ * not correlated, it just means we have to estimate those values by 
+ * measuring which topics appear in documents together.
+ */
 var getTopicCorrelations = function() {
+
   // initialize the matrix
   correlationMatrix = new Array(numTopics);
   for (var t1 = 0; t1 < numTopics; t1++) {
-    correlationMatrix[t1] = new Array(numTopics);
-    for (var t2 = 0; t2 < numTopics; t2++) {
-      correlationMatrix[t1][t2] = 0.0;
-    }
+    correlationMatrix[t1] = zeros(numTopics);
   }
 
-  var documentLogProbabilities = new Array(documents.length);
-  var meanLogProbabilities = new Array(numTopics);
-  for (var topic = 0; topic < numTopics; topic++) { meanLogProbabilities[topic] = 0.0; }
+  var topicProbabilities = zeros(numTopics);
+
   // iterate once to get mean log topic proportions
   documents.forEach(function(d, i) {
-    documentLogProbabilities[i] = new Array(numTopics);
-    for (var topic = 0; topic < numTopics; topic++) {
-      documentLogProbabilities[i][topic] = Math.log((d.topicCounts[topic] + documentTopicSmoothing) /
-                                              (d.tokens.length + numTopics * documentTopicSmoothing));
-      meanLogProbabilities[topic] += documentLogProbabilities[i][topic];
-    }
-  });
-  for (var topic = 0; topic < numTopics; topic++) {
-    meanLogProbabilities[topic] /= documents.length;
-  }
 
-  // iterate through the documents
-  for (var doc = 0; doc < documents.length; doc++) {    
-    var logProbabilities = documentLogProbabilities[doc];
-    for (var t1 = 0; t1 < numTopics; t1++) {
-      for (var t2 = 0; t2 < numTopics; t2++) {
-        correlationMatrix[t1][t2] += (logProbabilities[t1] - meanLogProbabilities[t1]) * 
-                              (logProbabilities[t2] - meanLogProbabilities[t2]);
+    // We want to find the subset of topics that occur with non-trivial concentration in this document.
+    // Only consider topics with at least the minimum number of tokens that are at least 5% of the doc.
+    var documentTopics = new Array();
+    var tokenCutoff = Math.max(correlationMinTokens, correlationMinProportion * d.tokens.length);
+
+    for (var topic = 0; topic < numTopics; topic++) {
+      if (d.topicCounts[topic] >= tokenCutoff) { 
+        documentTopics.push(topic);
+        topicProbabilities[topic]++; // Count the number of docs with this topic
       }
     }
-  }
 
-  var normalizer = 1.0 / (documents.length - 1);
-  for (var t1 = 0; t1 < numTopics; t1++) {
-    for (var t2 = 0; t2 < numTopics; t2++) {
-      correlationMatrix[t1][t2] *= normalizer;
+    // Look at all pairs of topics that occur in the document.
+    for (var i = 0; i < documentTopics.length - 1; i++) {
+      for (var j = i + 1; j < documentTopics.length; j++) {
+        correlationMatrix[ documentTopics[i] ][ documentTopics[j] ]++;
+        correlationMatrix[ documentTopics[j] ][ documentTopics[i] ]++;
+      }
+    }
+  });
+  for (var t1 = 0; t1 < numTopics - 1; t1++) {
+    for (var t2 = t1 + 1; t2 < numTopics; t2++) {
+      correlationMatrix[t1][t2] = Math.log((documents.length * correlationMatrix[t1][t2]) /
+                                           (topicProbabilities[t1] * topicProbabilities[t2]));
+      correlationMatrix[t2][t1] = Math.log((documents.length * correlationMatrix[t2][t1]) /
+                                           (topicProbabilities[t1] * topicProbabilities[t2]));
     }
   }
-  var standardDeviations = new Array(numTopics);
-  for (var topic = 0; topic < numTopics; topic++) {
-    standardDeviations[topic] = Math.sqrt(correlationMatrix[topic][topic]);
-  }
 
-  for (var t1 = 0; t1 < numTopics; t1++) {
-    for (var t2 = 0; t2 < numTopics; t2++) {
-      correlationMatrix[t1][t2] /= (standardDeviations[t1] * standardDeviations[t2]);
-    }
-  }
-  
   return correlationMatrix;
 };
 
@@ -530,8 +533,10 @@ var vocabTable = function() {
      .data(wordFrequencies)
      .enter().append("tr");
   var cells = rows.selectAll("td")
-     .data(function(row) { return [ { column: "word", value: row.word }, { column: "count", value: row.count } ]; })
-     .enter().append("td").text(function (d) { return d.value; });
+     .data(function(row) { return [ { column: "word", value: row.word, class: "" }, { column: "count", value: row.count, class: "unselectable" } ]; })
+     .enter().append("td")
+     .attr("class", function (d) { return d.class; })
+     .text(function (d) { return d.value; });
 };
 
 /* Declare functions for various tabs and buttons */
