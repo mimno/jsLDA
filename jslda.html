@@ -93,6 +93,7 @@ table td { text-align: right; padding: 9px 8px 0px 8px; }
 	<li><a id="topicwords-dl" href="javascript:;" download="topicwords.csv" onclick="saveTopicWords()">Topic words</a></li>
 	<li><a id="keys-dl" href="javascript:;" download="keys.csv" onclick="saveTopicKeys()">Topic summaries</a></li>
 	<li><a id="topictopic-dl" href="javascript:;" download="topictopic.csv" onclick="saveTopicPMI()">Topic-topic connections</a></li>
+	<li><a id="graph-dl" href="javascript:;" download="state.json" onclick="saveGraph()">Doc-topic graph file (for Gephi)</a></li>
 	<li><a id="state-dl" href="javascript:;" download="state.json" onclick="saveState()">Complete sampling state</a></li>
 	</ul>
 </div>
@@ -594,6 +595,21 @@ function saveTopicPMI() {
     matrix.forEach(function(row) { pmiCSV += row.map(function (x) { return d3.round(x, 8); }).join(",") + "\n"; });	
 	
 	d3.select("#topictopic-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(pmiCSV));
+}
+
+function saveGraph() {
+	var graphCSV = "Source,Target,Weight,Type\n";
+    var topicProbabilities = zeros(numTopics);
+	
+    documents.forEach(function(d, i) {
+		d.topicCounts.forEach(function(x, topic) {
+			if (x > 0.0) {
+				graphCSV += d.id + "," + topic + "," + d3.round(x / d.tokens.length, 8) + ",undirected\n";
+			}
+		});
+	});	
+	
+	d3.select("#graph-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(graphCSV));
 }
 
 function saveState() {
