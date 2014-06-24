@@ -198,6 +198,8 @@ var correlationCutoff = 0.25;
 
 var truncate = function(s) { return s.length > 300 ? s.substring(0, 299) + "..." : s; }
 
+var wordPattern = XRegExp("\\p{L}[\\p{L}\\p{P}]*\\p{L}", "g");
+
 var parseLine = function( line ) {
   if (line == "") { return; }
   var docID = documents.length;
@@ -211,7 +213,7 @@ var parseLine = function( line ) {
   }
 
   var tokens = [];
-  var rawTokens = text.toLowerCase().match(XRegExp("\\p{L}[\\p{L}\\p{P}]*\\p{L}", "g"));
+  var rawTokens = text.toLowerCase().match(wordPattern);
   if (rawTokens == null) { return; }
   var topicCounts = zeros(numTopics);
 
