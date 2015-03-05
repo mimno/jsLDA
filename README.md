@@ -6,7 +6,7 @@ An implementation of latent Dirichlet allocation in javascript.
 Instructions:
 ------------
 
-When you first load the page, it will first load a file containing documents and a file containing stopwords from URLs specified in the box on the top right. The default is a corpus of paragraphs from US State of the Union speeches. It's small to avoid overloading my server, but you can specify any file that is accessible from a URL.
+When you first load the page, it will request a file containing documents and a file containing stopwords. The default example is a corpus of paragraphs from US State of the Union speeches.
 
 When you first load the page, all words have been assigned randomly to topics.
 We train a model by cycling through every word token in the documents and sampling a topic for that word.
@@ -26,7 +26,9 @@ on logratios; PMI is simpler to calculate.
 Using your own corpus:
 ---------------------
 
-Are you ready to run your own corpus? The format for the documents file is one document per line, with each line consisting of
+To use your own corpus, the best way is to place the files in this repository in the document root of a web server.
+Replace the files `documents.txt` and `stoplist.txt` with your own corpus and stop list.
+The documents file is a tab-delimited text file with one document per line. Each line has three fields:
 
     [doc ID] [tab] [label] [tab] [text...]
 
