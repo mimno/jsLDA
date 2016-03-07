@@ -7,7 +7,7 @@
 - 271 sweep
 - 326 sortTopicWords
 - 343 displayTopicWords
-  363 reorderDocuments
+- 363 reorderDocuments
 - 396 getTopicCorrelations
 - 441 getCorrelationGraph
 - 456 plotMatrix
