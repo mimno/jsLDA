@@ -23,3 +23,50 @@
 - 635 saveGraph
 - 650 saveState
 - 668 ready
+
+### jsLDA Function Call Tree
+window (runs on startup)
+  QueryString
+  queue(loads files)
+    ready
+        parseLine
+          zeros
+          truncate
+        sortTopicWords
+          byCountDescending
+        displayTopicWords
+          toggleTopicDocuments
+          topNWords
+            reorderDocuments
+              truncate
+        toggleTopicDocuments
+          reorderDocuments
+        plotMatrix
+        vocabTable
+          mostFrequentWords
+          entropy
+
+saveState (No children?)
+
+sweep (button action)
+  sampleDiscrete
+  displayTopicWords
+  updateVocabTable
+      entropy
+  plotMatrix
+    getCorrelationGraph
+      topNWords
+    getTopicCorrelations
+      zeros
+      topNWords
+  reorderDocuments
+    truncate
+saveTopicPMI
+  getTopicCorrelations
+-   zeros
+saveGraph
+  zeros
+saveTopicWords
+  zeros
+saveDocTopics
+  zeros

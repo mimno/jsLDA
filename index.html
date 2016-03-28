@@ -3,45 +3,48 @@
 <script type="text/javascript" src="d3.v3.min.js"></script>
 <script type="text/javascript" src="xregexp-all-min.js"></script>
 <script type="text/javascript" src="queue.min.js"></script>
+<script type="text/javascript" src="spin.js"></script>
 <link href='http://fonts.googleapis.com/css?family=Alegreya' rel='stylesheet' type='text/css'>
 <style>
-body { font-family: Calibri, Verdana; background-color: #fff; }
+  body { font-family: Calibri, Verdana; background-color: #fff; }
 
-div.sidebar { float: left; width: 25%; }
-div.sidebar div.sidebox { margin: 5px; padding: 10px; }
+  div.sidebar { float: left; width: 25%; }
+  div.sidebar div.sidebox { margin: 5px; padding: 10px; }
 
-div.top { background-color: #ddd; margin: 5px; padding: 10px; -moz-border-radius: 10px; border-radius: 10px; }
-form { float: right; }
+  div.top { background-color: #ddd; margin: 5px; padding: 10px; -moz-border-radius: 10px; border-radius: 10px; }
+  form { float: right; }
 
-div#topics div { color: #555; margin-bottom: 10px; padding: 5px; }
-div#topics div.selected { border-right: solid black 2px; font-weight: bold;}
-div#topics div:hover { background-color: #ccc; }
+  div#topics div { color: #555; margin-bottom: 10px; padding: 5px; }
+  div#topics div.selected { border-right: solid black 2px; font-weight: bold;}
+  div#topics div:hover { background-color: #ccc; }
 
-#tabwrapper { margin-left: 25%; }
+  #tabwrapper { margin-left: 25%; }
 
-.tabs{ height: 30px; }
-.tabs > ul { font-size: 1em; list-style: none; }
-.tabs > ul > li { border: solid #ddd 2px; margin:0 2px 0 0; padding:7px 10px; display:block; float:left; color:#333; -webkit-user-select: none; -moz-user-select: none; user-select: none; -moz-border-radius: 4px; border-radius: 4px; background: #FFFFFF; }
-.tabs > ul > li:hover { background: #ddd; cursor:pointer; }
-.tabs > ul > li.selected { background: #ddd; cursor:pointer; font-weight: bold; }
-.tabs > ul > li.selected:hover { color: #000; }
+  .tabs{ height: 30px; }
+  .tabs > ul { font-size: 1em; list-style: none; }
+  .tabs > ul > li { border: solid #ddd 2px; margin:0 2px 0 0; padding:7px 10px; display:block; float:left; color:#333; -webkit-user-select: none; -moz-user-select: none; user-select: none; -moz-border-radius: 4px; border-radius: 4px; background: #FFFFFF; }
+  .tabs > ul > li:hover { background: #ddd; cursor:pointer; }
+  .tabs > ul > li.selected { background: #ddd; cursor:pointer; font-weight: bold; }
+  .tabs > ul > li.selected:hover { color: #000; }
 
-#vocab-tab  { float: right; }
-#dl-tab { float: right; }
+  #vocab-tab  { float: right; }
+  #dl-tab { float: right; }
 
-div.help { padding: 20px 100px 15px 30px; color: #777; }
+  div.help { padding: 20px 100px 15px 30px; color: #777; }
 
-.page { padding:10px 10px 25px; background-color: #fff; margin-top: 4px; display: none; }
-div#docs-page { display: block; }
-div.document { font-family: Alegreya, Georgia, Times; margin: 20px; padding: 10px; }
+  .page { padding:10px 10px 25px; background-color: #fff; margin-top: 4px; display: none; }
+  div#docs-page { display: block; }
+  div.document { font-family: Alegreya, Georgia, Times; margin: 20px; padding: 10px; }
 
-text { font-size: small; fill: #555; dominant-baseline: middle;; }
+  text { font-size: small; fill: #555; dominant-baseline: middle;; }
 
-table { margin-left: 50px; border-collapse: collapse; text-align: left; }
-table th { font-weight: normal; padding: 10px 8px; border-bottom: 2px solid black; }
-table td { text-align: right; padding: 9px 8px 0px 8px; }
+  table { margin-left: 50px; border-collapse: collapse; text-align: left; }
+  table th { font-weight: normal; padding: 10px 8px; border-bottom: 2px solid black; }
+  table td { text-align: right; padding: 9px 8px 0px 8px; }
 
-#tooltip { border: solid #ddd 2px; margin:0 2px 0 0; padding:7px 10px; color:#333; border-radius: 4px; background: #FFFFFF; position: absolute; z-index: 10; visibility: hidden; }
+  #tooltip { border: solid #ddd 2px; margin:0 2px 0 0; padding:7px 10px; color:#333; border-radius: 4px; background: #FFFFFF; position: absolute; z-index: 10; visibility: hidden; }
+
+
 </style>
 </head>
 <body>
@@ -61,6 +64,9 @@ table td { text-align: right; padding: 9px 8px 0px 8px; }
 <div class="sidebar">
 
 <div id="topics" class="sidebox">
+
+
+  </div>
 </div>
 
 </div>
@@ -78,6 +84,7 @@ table td { text-align: right; padding: 9px 8px 0px 8px; }
 <div id="pages">
 
 <div id="docs-page" class="page">
+
 	<div class="help">Documents are sorted by their proportion of the currently selected topic, biased to prefer longer documents.</div>
 </div>
 
@@ -134,6 +141,32 @@ var QueryString = function () {
   }
     return query_string;
 } ();
+
+// - 2016-03-27 OD: Spinner Options
+    var opts = {
+      lines: 12             // The number of lines to draw
+    , length: 10             // The length of each line
+    , width: 5              // The line thickness
+    , radius: 10            // The radius of the inner circle
+    , scale: 2.0           // Scales overall size of the spinner
+    , corners: 1            // Roundness (0..1)
+    , color: '#19A3D1'         // #rgb or #rrggbb
+    , opacity: 1/4          // Opacity of the lines
+    , rotate: 0             // Rotation offset
+    , direction: 1          // 1: clockwise, -1: counterclockwise
+    , speed: 1              // Rounds per second
+    , trail: 100            // Afterglow percentage
+    , fps: 20               // Frames per second when using setTimeout()
+    , zIndex: 2e9           // Use a high z-index by default
+    , className: 'spinner'  // CSS class to assign to the element
+    , top: '50%'            // center vertically
+    , left: '50%'           // center horizontally
+    , shadow: false         // Whether to render a shadow
+    , hwaccel: false        // Whether to use hardware acceleration (might be buggy)
+    , position: 'absolute'  // Element positioning
+    }
+    var target = document.getElementById('docs-page')
+    var spinner = new Spinner(opts).spin(target)
 
 // Change the strings at the end of these lines to reset the default filenames!
 // 2016-03-04 OD: changed to use NIFA projects
@@ -666,21 +699,26 @@ queue()
   .await(ready);
 
 function ready(error, stops, lines) {
+
+
   if (error) { alert("One of these URLs didn't work:\n " + stopwordsURL + "\n " + documentsURL); }
   else {
     // Create the stoplist
     stops.split("\n").forEach(function (w) { stopwords[w] = 1; });
 
     // Load documents and populate the vocabulary
-    lines.split("\r").forEach(parseLine);  // 2016-03-04 OD: changed from FF to LF
+    lines.split("\r").forEach(parseLine);  // 2016-03-04 OD: changed from LF to CR
 
     sortTopicWords();
     displayTopicWords();
-	toggleTopicDocuments(0);
+	  toggleTopicDocuments(0);
    //plotGraph();
-	plotMatrix();
-
+	  plotMatrix();
     vocabTable();
+    var target = document.getElementById('docs-page')
+   // 2016-03-27 OD: stop spinner after processing
+    spinner.stop();
+
   }
 }
 
