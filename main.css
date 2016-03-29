@@ -1,0 +1,37 @@
+body { font-family: Calibri, Verdana; background-color: #fff; }
+
+div.sidebar { float: left; width: 25%; }
+div.sidebar div.sidebox { margin: 5px; padding: 10px; }
+
+div.top { background-color: #ddd; margin: 5px; padding: 10px; -moz-border-radius: 10px; border-radius: 10px; }
+form { float: right; }
+
+div#topics div { color: #555; margin-bottom: 10px; padding: 5px; }
+div#topics div.selected { border-right: solid black 2px; font-weight: bold;}
+div#topics div:hover { background-color: #ccc; }
+
+#tabwrapper { margin-left: 25%; }
+
+.tabs{ height: 30px; }
+.tabs > ul { font-size: 1em; list-style: none; }
+.tabs > ul > li { border: solid #ddd 2px; margin:0 2px 0 0; padding:7px 10px; display:block; float:left; color:#333; -webkit-user-select: none; -moz-user-select: none; user-select: none; -moz-border-radius: 4px; border-radius: 4px; background: #FFFFFF; }
+.tabs > ul > li:hover { background: #ddd; cursor:pointer; }
+.tabs > ul > li.selected { background: #ddd; cursor:pointer; font-weight: bold; }
+.tabs > ul > li.selected:hover { color: #000; }
+
+#vocab-tab  { float: right; }
+#dl-tab { float: right; }
+
+div.help { padding: 20px 100px 15px 30px; color: #777; }
+
+.page { padding:10px 10px 25px; background-color: #fff; margin-top: 4px; display: none; }
+div#docs-page { display: block; }
+div.document { font-family: Alegreya, Georgia, Times; margin: 20px; padding: 10px; }
+
+text { font-size: small; fill: #555; dominant-baseline: middle;; }
+
+table { margin-left: 50px; border-collapse: collapse; text-align: left; }
+table th { font-weight: normal; padding: 10px 8px; border-bottom: 2px solid black; }
+table td { text-align: right; padding: 9px 8px 0px 8px; }
+
+#tooltip { border: solid #ddd 2px; margin:0 2px 0 0; padding:7px 10px; color:#333; border-radius: 4px; background: #FFFFFF; position: absolute; z-index: 10; visibility: hidden; }
