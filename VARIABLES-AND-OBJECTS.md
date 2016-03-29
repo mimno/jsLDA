@@ -7,8 +7,12 @@ var topicWordSmoothing = 0.01;// Phi?
 var wordPattern = XRegExp("\\p{L}[\\p{L}\\p{P}]*\\p{L}", "g"); //pattern for finding tokens
 var vocabularySize = 0;
 var vocabularyCounts = {};
-var correlationMinTokens = 2;
-var correlationMinProportion = 0.05;
+
+// We want to find the subset of topics that occur with non-trivial concentration in this document.
+// Only consider topics with at least the minimum number of tokens that are at least 5% of the doc.
+var correlationMinTokens = 2; // Minimum number of tokens
+var correlationMinProportion = 0.05; //Minimum proportion of 5%
+
 var numTopics = QueryString.topics ? parseInt(QueryString.topics) : 25;
 var stopwords = {};
 

@@ -148,9 +148,9 @@ var QueryString = function () {
     , length: 10             // The length of each line
     , width: 5              // The line thickness
     , radius: 10            // The radius of the inner circle
-    , scale: 2.0           // Scales overall size of the spinner
+    , scale: 2.0            // Scales overall size of the spinner
     , corners: 1            // Roundness (0..1)
-    , color: '#19A3D1'         // #rgb or #rrggbb
+    , color: '#19A3D1'      // #rgb or #rrggbb (#19A3D1 is a shade of blue)
     , opacity: 1/4          // Opacity of the lines
     , rotate: 0             // Rotation offset
     , direction: 1          // 1: clockwise, -1: counterclockwise
@@ -469,7 +469,7 @@ var getTopicCorrelations = function() {
   }
 
   return correlationMatrix;
-};
+}; // end of getTopicCorrelations
 
 var getCorrelationGraph = function(correlationMatrix, cutoff) {
   var graph = {"nodes": [], "links": []};
@@ -484,7 +484,7 @@ var getCorrelationGraph = function(correlationMatrix, cutoff) {
     }
   }
   return graph;
-};
+}; // end of getCorrelationGraph
 
 var plotMatrix = function() {
 	var left = 50;
@@ -534,7 +534,7 @@ var plotMatrix = function() {
 		var tooltip = d3.select("#tooltip");
 		tooltip.style("visibility", "hidden");
 	});
-};
+}; // end of plotMatrix
 
 var toggleTopicDocuments = function(topic) {
   if (topic === selectedTopic) {
@@ -707,6 +707,7 @@ function ready(error, stops, lines) {
     stops.split("\n").forEach(function (w) { stopwords[w] = 1; });
 
     // Load documents and populate the vocabulary
+    //Excel tab delimited files are exported with carriage returns (\r) rather than the unix linefeeds (\n) at the end of each line.
     lines.split("\r").forEach(parseLine);  // 2016-03-04 OD: changed from LF to CR
 
     sortTopicWords();
