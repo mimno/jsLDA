@@ -3,11 +3,17 @@ jsLDA
 
 ### An implementation of latent Dirichlet allocation (JDA) in javaScript.
 
-#### Revised and enhanced by Owen Dall in 2016 from the original by David Mimno.  
+##### Source code reorganized, UI functionality enhanced, and additional documentation provide by Owen Dall in 2016 from the original by David Mimno:
 
-Original code (renamed "jslda-original.html") moved to the "archive" folder for reference.
+* JavaScript extracted and moved to JS Files from the original HTML.
+* CSS extracted and moved to CSS files from the original HTML.
+* Added progress spinner
+* Documented all functions and objects (see "docs" folder)
+* Changed default corpus of documents
+* Planning additional visualizations
+*   Original code renamed "jslda-original.html" and moved to the "archive" folder for future reference and validation of changes.
 
-See the new "docs" folder for detailed documentation regarding functions and objects.
+
 
 Instructions:
 ------------
