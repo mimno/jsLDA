@@ -1,7 +1,13 @@
 jsLDA
 =====
 
-An implementation of latent Dirichlet allocation in javascript.
+### An implementation of latent Dirichlet allocation (JDA) in javaScript.
+
+#### Revised and enhanced by Owen Dall in 2016 from the original by David Mimno.  
+
+Original code (renamed "jslda-original.html") moved to the "archive" folder for reference.
+
+See the new "docs" folder for detailed documentation regarding functions and objects.
 
 Instructions:
 ------------

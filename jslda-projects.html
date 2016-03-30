@@ -1,0 +1,69 @@
+<!-- Modified/Enhanced from the original developed by David Miomno -->
+<html>
+  <head>
+    <script type="text/javascript" src="./js/d3.v3.min.js"></script>
+    <script type="text/javascript" src="./js/xregexp-all-min.js"></script>
+    <script type="text/javascript" src="./js/queue.min.js"></script>
+    <script type="text/javascript" src="./js/spin.js"></script>
+    <script type="text/javascript" src="./js/download.js"></script>
+    <script type="text/javascript" src="./js/jsLDA.js"></script>
+    <link href="http://fonts.googleapis.com/css?family=Open+Sans" rel='stylesheet' type='text/css'>
+    <link href='./css/main.css' rel='stylesheet' type='./css/text/css'>
+  </head>
+  <body onLoad="start()"> <!--Puts the main function in jsLDA into global scope -->
+    <div id="tooltip">
+    </div>
+    <div id="main">
+      <div id="form" class="top">
+        <button id="sweep">Run 50 iterations</button>
+        Iterations: <span id="iters">0</span>
+        <form>
+          <span>Documents URL: <input id="docs-url-input" type="text" name="docs" value=""/></span>
+	        <span>Stoplist URL: <input id="stops-url-input" type="text" name="stoplist" value=""/></span>
+	       # Topics: <input id="num-topics-input" type="text" name="topics" value="" size="3"/> <input type="submit" value="Load"/>
+	      </form>
+  	  </div>
+	    <div class="sidebar">
+	      <div id="topics" class="sidebox">
+  	    </div>
+	    </div>
+    </div> <!-- "main" -->
+    <div id="tabwrapper">
+      <div class="tabs">
+      	<ul>
+        	<li id="docs-tab" class="selected">Topic Documents</li>
+        	<li id="corr-tab">Topic Correlations</li>
+        	<li id="dl-tab">Downloads</li>
+        	<li id="vocab-tab">Vocabulary</li>
+      	</ul>
+    	</div> <!-- "tabs" -->
+      <div id="pages">
+    	  <div id="docs-page" class="page">
+    		  <div class="help">Documents are sorted by their proportion of the currently selected topic, biased to prefer longer documents.</div>
+    	  </div>  <!-- "docs-page" -->
+        <div id="vocab-page" class="page">
+    	  	<div class="help">Words occurring in only one topic have specificity 1.0, words evenly distributed among all topics have specificity 0.0.
+          </div>
+        	<table id="vocab-table">
+    	      <thead><th>Word</th><th>Frequency</th><th>Topic Specificity</th></thead><tbody></tbody>
+    	    </table>
+    	  </div> <!-- "vocab-page" -->
+        <div id="corr-page" class="page">
+    	  	<div class="help">Topics that occur together more than expected are blue, topics that occur together less than expected are red.</div>
+    	  </div> <!-- "corr-page" -->
+        <div id="dl-page" class="page">
+      		<div class="help">Each file will be exported is in comma-separated value (CSV) format.</div>
+    	    <ul>
+          	<!-- 2016-03-28 OD: Modified names -->
+          	<li><a id="doctopics-dl" href="javascript:;" download="DocTopics.csv" onclick="saveDocTopics()">Document Topics</a></li>
+          	<li><a id="topicwords-dl" href="javascript:;" download="TopicWords.csv" onclick="saveTopicWords()">Topic Words</a></li>
+          	<li><a id="keys-dl" href="javascript:;" download="TopicKeys.csv" onclick="saveTopicKeys()">Topic Keys (summaries)</a></li>
+          	<li><a id="topictopic-dl" href="javascript:;" download="TopicTopic.csv" onclick="saveTopicPMI()">Topic-Topic Connections</a></li>
+          	<li><a id="graph-dl" href="javascript:;" download="Gephi.csv" onclick="saveGraph()">Document-Topic Graph File (for Gephi)</a></li>
+          	<li><a id="state-dl" href="javascript:;" download="SamplingState.csv" onclick="saveSamplingState()">Complete Sampling State</a></li>
+          </ul>
+    	  </div> <!-- "dl-page" -->
+      </div> <!-- "pages" -->
+    </div> <!-- "tabwrapper" -->
+  </body>
+</html>
