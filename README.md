@@ -1,7 +1,7 @@
 jsLDA
 =====
 
-### An implementation of latent Dirichlet allocation (JDA) in javaScript.
+### An implementation of latent Dirichlet allocation (LDA) in javaScript.
 
 ##### Source code reorganized, UI functionality enhanced, and additional documentation provide by Owen Dall in 2016 from the original by David Mimno:
 
@@ -20,6 +20,7 @@ Instructions:
 
 1. To run locally you will need a simple HTTP Server.  You can find "rubyHTTPServer.rb" in the main folder.  If you have Ruby installed (Mac OS X machines have both Ruby and Python installed by default), open your terminal window, go the directory containing the code, and type:
 
+
     $ ruby rubyHTTPServer.rb
 
 Then launch your browser and enter "localhost:9090" as the URL.
@@ -30,13 +31,16 @@ An "iteration" corresponds to one pass through the documents.
 
 3. Click the "Run 50 iterations" button to start training. You will see the progress spinner during this process. The topics on the right side of the page should now look more interesting. Run more iterations if you would like -- there's probably still a lot of room for improvement after only 50 iterations.
 
-4. Once you're satisfied with the model, you can click on a topic from the list on the right to sort documents in descending order by their use of that topic. Proportions are weighted so that longer documents will come first.
-
-5. You can also explore correlations between topics by clicking the "Topic Correlations" tab. This view shows a force directed layout with connections between topics that have correlations above a certain threshold. You can control this threshold with the slider: a low cutoff will display more edges, while a high cutoff will remove all but the strongest correlations.
-
-6. Topic correlations are actually pointwise mutual information scores. This score measures whether two topics occur
-in the same document more often than we would expect by chance. Previous versions of this script calculated correlations
+4. Once you're satisfied with the model, you can click on a topic from the list on the right to sort documents in descending order by their use of that topic. Proportions are weighted so that longer documents will come first. This view shows topic-by-topic correlation matrix for all topics. Topic correlations are actually pointwise mutual information scores. This score measures whether two topics occur in the same document more often than we would expect by chance. Previous versions of this script calculated correlations
 on logratios. This implementation uses PMI, which is simpler to calculate.
+
+5. The "Downloads" page provides you with the ability to download the following outputs of the modeling process in CSF format:
+  * Document topics
+  * Topic Words
+  * Topic Keys (Summaries)
+  * Topic-Topic Connections
+  * Document-Topic graph file (for Gephi)
+  * Complete Sampling State
 
 Using your own corpus:
 ---------------------
