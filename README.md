@@ -34,7 +34,7 @@ An "iteration" corresponds to one pass through the documents.
 4. Once you're satisfied with the model, you can click on a topic from the list on the right to sort documents in descending order by their use of that topic. Proportions are weighted so that longer documents will come first. This view shows topic-by-topic correlation matrix for all topics. Topic correlations are actually pointwise mutual information scores. This score measures whether two topics occur in the same document more often than we would expect by chance. Previous versions of this script calculated correlations
 on logratios. This implementation uses PMI, which is simpler to calculate.
 
-5. The "Downloads" page provides you with the ability to download the following outputs of the modeling process in CSF format:
+5. The "Downloads" page provides you with the ability to download the following outputs of the modeling process in CSV format:
   * Document topics
   * Topic Words
   * Topic Keys (Summaries)
