@@ -42,7 +42,7 @@ var lda = function lda() {
 		var stopwordsURL = dataDir + "stop_words.txt";
 
 		var stopwords = {};
-		var documents = [];
+
 		//  Mimno: Use a more agressive smoothing parameter to sort documents by topic. This has the effect of preferring longer documents.
 		var docSortSmoothing = 10.0;
 		var sumDocSortSmoothing = docSortSmoothing * numTopics;
@@ -50,17 +50,14 @@ var lda = function lda() {
 		var completeSweeps = 0;
 		var requestedSweeps = 0;
 		var selectedTopic = -1;
+
+		var documents = [];
 		var wordTopicCounts = {};
 		var topicWordCounts = [];
 		var tokensPerTopic = [];
 		var topicWeights = [];
+		var truncateLength = 400; //2016-04-03 OD: Added this variable. Truncate document text for viewing at this number of characters.
 
-		/* SVG functions */
-		var w = 650,
-			h = 650,
-			fill = d3.scale.category20();
-		var linkDistance = 150;
-		var correlationCutoff = 0.25;
 		////////////////////////////////////////////////////////////////////////////////////////////
 
 		// Get parameters from the URL if avaiilable
@@ -71,13 +68,13 @@ var lda = function lda() {
 		documentsURL = decodeURIComponent(documentsURL);
 		stopwordsURL = decodeURIComponent(stopwordsURL);
 
-		var zeros = function(n) {
-			var x = new Array(n);
-			for (var i = 0; i < n; i++) {
-				x[i] = 0.0;
-			}
-			return x;
-		};
+		var target = document.getElementById('docs-page')
+		var spinner = new Spinner().spin(target); //using defaults in spin.js
+
+		d3.select("#sweep").on("click", function() {
+			requestedSweeps += 50;
+			d3.timer(sweep);
+		});
 
 
 		var numTopics = QueryString.topics ? parseInt(QueryString.topics) : numTopics;
@@ -97,8 +94,8 @@ var lda = function lda() {
 			tokensPerTopic[topic] = 0;
 		}
 
-
-
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// 2016-04-03 OD: Use queue for async loading of files, then calling processFiles when complete
 		queue()
 			.defer(d3.text, stopwordsURL)
 			.defer(d3.text, documentsURL)
@@ -118,40 +115,33 @@ var lda = function lda() {
 				//Excel tab delimited files are exported with carriage returns (\r) rather than the unix linefeeds (\n) at the end of each line.
 				lines.split("\r").forEach(parseLine); // 2016-03-04 OD: changed from LF to CR
 
-				sortTopicWords();
-				displayTopicWords();
+				//	sortTopicWords();
+				//	displayTopicWords();
 				//toggleTopicDocuments(0);
 				//plotGraph();
 				//	plotMatrix();
 				//	vocabTable();
-				//	var target = document.getElementById('docs-page')
 				// 2016-03-27 OD: stop spinner after processing
-				//spinner.stop();
+				spinner.stop();
 
 			}
 		}; // end of processFiles
+		////////////////////////////////////////////////////////////////////////////////
 
-		///////////////////////////////////////////////////////////////////////
-		// 2016-04-03 OD: Start of all function definitions
-		///////////////////////////////////////////////////////////////////////
-		var truncate = function(s) {
-			return s.length > 300 ? s.substring(0, 299) + "..." : s;
-		}
+
+		//////////// 2016-04-03 OD: Start of all function definitions /////////////////
+
 
 		var parseLine = function(line) {
 			if (line == "") {
 				return;
 			}
-			var docID = documents.length;
+			//var docID = documents.length;
 			var docDate = "";
 			var fields = line.split("\t");
-			var text = [fields[1], fields[2], fields[3]]
+			var docID = fields[0];
+			var text = [fields[1], fields[2], fields[3]];
 			var text = text.join(" "); // 2016-03-04 OD: changed to use second field
-			if (fields.length == 3) { // If it's in [ID]\t[TAG]\t[TEXT] format...
-				docID = fields[0];
-				docDate = +fields[1]; // interpret as a number
-				text = fields[2];
-			}
 
 			var tokens = [];
 			var rawTokens = text.toLowerCase().match(wordPattern);
@@ -190,10 +180,12 @@ var lda = function lda() {
 				"tokens": tokens,
 				"topicCounts": topicCounts
 			});
+			/* 2016-04-03 OD: The following d3 code should be moved to ui.js
 			d3.select("div#docs-page").append("div")
 				.attr("class", "document")
 				.text("[" + docID + "] " + truncate(text));
-		};
+     */
+		}; // end of "parseLine"
 
 		var sampleDiscrete = function(weights) {
 			var sample = d3.sum(weights) * Math.random();
@@ -244,12 +236,13 @@ var lda = function lda() {
 			completeSweeps += 1;
 			d3.select("#iters").text(completeSweeps);
 			if (completeSweeps >= requestedSweeps) {
-				reorderDocuments();
-				sortTopicWords();
-				displayTopicWords();
+				// 2016-04-03 OD: Need to move the functions below to ui.js
+				//	reorderDocuments();
+				//	sortTopicWords();
+				//	displayTopicWords();
 				//plotGraph();
-				plotMatrix();
-				updateVocabTable();
+				//		plotMatrix();
+				//		updateVocabTable();
 				return true;
 			} else {
 				return false;
@@ -414,6 +407,20 @@ var lda = function lda() {
 			return Math.log(sum) - (1.0 / sum) * d3.sum(counts, function(x) {
 				return x * Math.log(x);
 			});
+		}
+
+		var zeros = function(n) {
+			var x = new Array(n);
+			for (var i = 0; i < n; i++) {
+				x[i] = 0.0;
+			}
+			return x;
+		};
+		// 2016-04-03 OD: replaced the value "300" with the variable "truncateLegth"
+		var truncate = function(s) {
+			return s.length > truncateLength ? s.substring(0, truncateLength - 1) +
+				"..." :
+				s;
 		}
 
 		// 2016-04-03 OD: Move all functions for downloading results to downloadResults.js
