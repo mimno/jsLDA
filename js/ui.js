@@ -30,6 +30,11 @@ var ui = function() {
     d3.timer(sweep);
   });
 
+  var vis = d3.select("#corr-page")
+    .append("svg:svg")
+    .attr("width", w)
+    .attr("height", h);
+
   // 2016-03-27 OD: Spinner Options
   var opts = {
       lines: 12 // The number of lines to draw

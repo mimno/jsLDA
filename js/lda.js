@@ -1,19 +1,3 @@
-// Set global variables
-
-var wordPattern = XRegExp("\\p{L}[\\p{L}\\p{P}]*\\p{L}", "g"); //uses the XRegExp.js plugin
-var documentTopicSmoothing = 0.1;
-var topicWordSmoothing = 0.01;
-var vocabularySize = 0;
-var vocabularyCounts = {};
-var selectedTopic = -1; //initialize to no selected topic
-// Constants for calculating topic correlation. A doc with 5% or more tokens in a topic is "about" that topic.
-var correlationMinTokens = 2;
-var correlationMinProportion = 0.05;
-var numTopics = 25; //default
-
-var dataDir = "../data/";
-var documentsURL = dataDir + "projects.txt";
-var stopwordsURL = dataDir + "stop_words.txt";
 var QueryString = function() {
 	// This function is copied from stack overflow: http://stackoverflow.com/users/19068/quentin
 	// This function is anonymous, is executed immediately and the return value is assigned to QueryString!
@@ -38,7 +22,47 @@ var QueryString = function() {
 }();
 
 
-var lda = function() {
+var lda = function lda() {
+
+		/////////////////////// Setup Variables ////////////////////////////////////////////////
+		var wordPattern = XRegExp("\\p{L}[\\p{L}\\p{P}]*\\p{L}", "g"); //uses the XRegExp.js plugin
+		var documentTopicSmoothing = 0.1;
+		var topicWordSmoothing = 0.01;
+		var vocabularySize = 0;
+		var vocabularyCounts = {};
+		var selectedTopic = -1; //initialize to no selected topic
+
+		// Constants for calculating topic correlation.
+		var correlationMinTokens = 2;
+		var correlationMinProportion = 0.05; // A doc with 5% or more tokens in a topic is "about" that topic.
+
+		var numTopics = 25; //default number if not specified
+		var dataDir = "../data/";
+		var documentsURL = dataDir + "projects.txt";
+		var stopwordsURL = dataDir + "stop_words.txt";
+
+		var stopwords = {};
+		var documents = [];
+		//  Mimno: Use a more agressive smoothing parameter to sort documents by topic. This has the effect of preferring longer documents.
+		var docSortSmoothing = 10.0;
+		var sumDocSortSmoothing = docSortSmoothing * numTopics;
+		//
+		var completeSweeps = 0;
+		var requestedSweeps = 0;
+		var selectedTopic = -1;
+		var wordTopicCounts = {};
+		var topicWordCounts = [];
+		var tokensPerTopic = [];
+		var topicWeights = [];
+
+		/* SVG functions */
+		var w = 650,
+			h = 650,
+			fill = d3.scale.category20();
+		var linkDistance = 150;
+		var correlationCutoff = 0.25;
+		////////////////////////////////////////////////////////////////////////////////////////////
+
 		// Get parameters from the URL if avaiilable
 
 		// file URLs in the QueryString will override the defaults
@@ -67,44 +91,49 @@ var lda = function() {
 		d3.select("#stops-url-input").attr("value", stopwordsURL);
 		d3.select("#num-topics-input").attr("value", numTopics);
 
-		var stopwords = {};
-		// Use a more agressive smoothing parameter to sort
-		//  documents by topic. This has the effect of preferring
-		//  longer documents.
-		var docSortSmoothing = 10.0;
-		var sumDocSortSmoothing = docSortSmoothing * numTopics;
-
-		var completeSweeps = 0;
-		var requestedSweeps = 0;
-
-		var selectedTopic = -1;
-
-		var wordTopicCounts = {};
-		var topicWordCounts = [];
-		var tokensPerTopic = [];
+		topicWeights.length = numTopics;
 		tokensPerTopic.length = numTopics;
 		for (var topic = 0; topic < numTopics; topic++) {
 			tokensPerTopic[topic] = 0;
 		}
 
-		var topicWeights = [];
-		topicWeights.length = numTopics;
 
-		var documents = [];
 
-		/* SVG functions */
-		var w = 650,
-			h = 650,
-			fill = d3.scale.category20();
+		queue()
+			.defer(d3.text, stopwordsURL)
+			.defer(d3.text, documentsURL)
+			.await(processFiles); // 2016-04-03 OD: Changed name from "ready" to "dataLoaded" and changed to use ".awaitALL"
 
-		var vis = d3.select("#corr-page")
-			.append("svg:svg")
-			.attr("width", w)
-			.attr("height", h);
+		function processFiles(error, stops, lines) {
+			if (error) {
+				alert("One of these URLs didn't work:\n " + stopwordsURL + "\n " +
+					documentsURL);
+			} else {
+				// Create the stoplist
+				stops.split("\n").forEach(function(w) {
+					stopwords[w] = 1;
+				});
 
-		var linkDistance = 150;
-		var correlationCutoff = 0.25;
+				// Load documents and populate the vocabulary
+				//Excel tab delimited files are exported with carriage returns (\r) rather than the unix linefeeds (\n) at the end of each line.
+				lines.split("\r").forEach(parseLine); // 2016-03-04 OD: changed from LF to CR
 
+				sortTopicWords();
+				displayTopicWords();
+				//toggleTopicDocuments(0);
+				//plotGraph();
+				//	plotMatrix();
+				//	vocabTable();
+				//	var target = document.getElementById('docs-page')
+				// 2016-03-27 OD: stop spinner after processing
+				//spinner.stop();
+
+			}
+		}; // end of processFiles
+
+		///////////////////////////////////////////////////////////////////////
+		// 2016-04-03 OD: Start of all function definitions
+		///////////////////////////////////////////////////////////////////////
 		var truncate = function(s) {
 			return s.length > 300 ? s.substring(0, 299) + "..." : s;
 		}
@@ -389,35 +418,4 @@ var lda = function() {
 
 		// 2016-04-03 OD: Move all functions for downloading results to downloadResults.js
 
-		queue()
-			.defer(d3.text, stopwordsURL)
-			.defer(d3.text, documentsURL)
-			.await(processFiles); // 2016-04-03 OD: Changed name from "ready" to "dataLoaded" and changed to use ".awaitALL"
-
-		function processFiles(error, stops, lines) {
-			if (error) {
-				alert("One of these URLs didn't work:\n " + stopwordsURL + "\n " +
-					documentsURL);
-			} else {
-				// Create the stoplist
-				stops.split("\n").forEach(function(w) {
-					stopwords[w] = 1;
-				});
-
-				// Load documents and populate the vocabulary
-				//Excel tab delimited files are exported with carriage returns (\r) rather than the unix linefeeds (\n) at the end of each line.
-				lines.split("\r").forEach(parseLine); // 2016-03-04 OD: changed from LF to CR
-
-				sortTopicWords();
-				displayTopicWords();
-				//toggleTopicDocuments(0);
-				//plotGraph();
-				//	plotMatrix();
-				//	vocabTable();
-				//	var target = document.getElementById('docs-page')
-				// 2016-03-27 OD: stop spinner after processing
-				//spinner.stop();
-
-			}
-		}
 	} // end of "lda"
