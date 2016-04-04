@@ -1,5 +1,6 @@
 // 2016-04-03 OD: Moved all User Interface related code to "ui.js"
 var ui = function() {
+  var numTopics;
   /* Declare functions for various tabs and buttons */
   d3.select("#docs-tab").on("click", function() {
     d3.selectAll(".page").style("display", "none");
