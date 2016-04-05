@@ -57,6 +57,7 @@ var horizontalTopics = vis.selectAll("text.hor").data(correlationGraph.nodes);
 var verticalTopics = vis.selectAll("text.ver").data(correlationGraph.nodes);
 var circles = vis.selectAll("circle").data(correlationGraph.links);
 var tooltip = d3.select("#tooltip");
+
 ###### Related to functions for saving objects
 var wordCounts = [];
 var docTopicsCSV = "";
