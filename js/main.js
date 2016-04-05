@@ -1,3 +1,4 @@
+// Get parameters from URL, if available
 var QueryString = function() {
 	// This function is copied from stack overflow: http://stackoverflow.com/users/19068/quentin
 	// This function is anonymous, is executed immediately and the return value is assigned to QueryString!
@@ -22,7 +23,7 @@ var QueryString = function() {
 };
 
 
-var lda = function lda() {
+var main = function main() {
 
 	/////////////////////// Setup Variables ////////////////////////////////////////////////
 	var wordPattern = XRegExp("\\p{L}[\\p{L}\\p{P}]*\\p{L}", "g"); //uses the XRegExp.js plugin
@@ -35,13 +36,14 @@ var lda = function lda() {
 	// Constants for calculating topic correlation.
 	var correlationMinTokens = 2;
 	var correlationMinProportion = 0.05; // A doc with 5% or more tokens in a topic is "about" that topic.
-
+    var linkDistance = 150;
+	var correlationCutoff = 0.25; //2016-04-04 OD: original code: "function var getCorrelationGraph = function(correlationMatrix, cutoff)" 
 	var numTopics = 25; //default number if not specified
 	var dataDir = "../data/";
 	var documentsURL = dataDir + "documents.txt";
 	var stopwordsURL = dataDir + "stopwords.txt";
 
-	var stopwords = {};
+	var stopwords = [];
 
 	//  Mimno: Use a more agressive smoothing parameter to sort documents by topic. This has the effect of preferring longer documents.
 	var docSortSmoothing = 10.0;
@@ -57,6 +59,9 @@ var lda = function lda() {
 	var tokensPerTopic = [];
 	var topicWeights = [];
 	var truncateLength = 400; //2016-04-03 OD: Added this variable. Truncate document text for viewing at this number of characters.
+   
+    var lda = {}; // 2016-04-04 OD: Array of objects to be passed to functions to avold global variables. Objects are passed by reference.
+
 
 	////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -73,7 +78,7 @@ var lda = function lda() {
 
 	d3.select("#sweep").on("click", function() {
 		requestedSweeps += 50;
-		d3.timer(sweep);
+		d3.timer(sweep); // use the timer to allow interruption?
 	});
 
 
@@ -101,56 +106,65 @@ var lda = function lda() {
 		.defer(d3.text, documentsURL)
 		.await(processDocs); // 2016-04-03 OD: Changed name from "ready" to "dataLoaded" and changed to use ".awaitALL"
 
-	function processDocs(error, stopWords, lines) {
+	function processDocs(error, stopwords, lines) {
 		if (error) {
-			alert("One of these URLs didn't work:\n " + stopwordsURL + "\n " +
-				documentsURL);
+			alert("One of these URLs didn't work:\n " + stopwordsURL + "\n " + 	documentsURL);
 		} else {
 			// Create the stoplist
-			stopWords.split("\n").forEach(function(w) {
+			stopwords.split("\n").forEach(function(w) {
 				stopwords[w] = 1;
 			});
 
 			// Load documents and populate the vocabulary
 			//Excel tab delimited files are exported with carriage returns (\r) rather than the unix linefeeds (\n) at the end of each line.
 			lines.split("\r").forEach(parseLine); // 2016-03-04 OD: changed from LF to CR
-			ui.numTopics = numTopics;
-			ui.wordTopicCounts = wordTopicCounts;
-			ui.documents = documents;
-			ui.sortTopicWords();
-			ui.displayTopicWords();
-			ui.toggleTopicDocuments(0);
+			// 2016-04-04 OD: Need to pass parameters to exteral fuinctions
+			var thisTopic = selectedTopic = 0; // 2016-04-04 OD: by default select the first topic (zero based array)
+            // Pass the ldaObjects object with all that will be needed for parameters
+            setupLDA(); // 2016-04-04 New function to set all objects into object "lda"
+			
+			ui.sortTopicWords(lda);
+			ui.displayTopicWords(lda);
+			ui.toggleTopicDocuments(lda);
 			//plotGraph();
-			ui.plotMatrix();
-			ui.vocabTable();
+			ui.plotMatrix(lda);
+			ui.vocabTable(lda);
 			// 2016-03-27 OD: stop spinner after processing
 			spinner.stop();
 
 		}
 	}; // end of processFiles
+
 	////////////////////////////////////////////////////////////////////////////////
-
-
 	//////////// 2016-04-03 OD: Start of all function definitions /////////////////
-
 
 	var parseLine = function(line) {
 		if (line == "") {
 			return;
 		}
-		//var docID = documents.length;
-		var docDate = "";
-		var fields = line.split("\t");
-		var docID = fields[0];
-		var text = [fields[1], fields[2], fields[3]];
-		var text = text.join(" "); // 2016-03-04 OD: changed to use second field
+	  
+	  var docID = documents.length; // use automatic incrementing if there is no docID provided
+	  var docDate = "";
+	  var fields = line.split("\t");
+	  var text = fields[0];  // Assume there's just one field, the text
 
-		var tokens = [];
+	  if (fields.length === 2) {  // If it's in [ID]\t[TEXT] format...
+	    docID = fields[0];
+	    text = fields[1];
+	  }
+	  if (fields.length === 3) {  // If it's in [ID]\t[TAG]\t[TEXT] format...
+	    docID = fields[0];
+	    docDate = +fields[1]; // interpret as a number
+	    text = fields[2];
+	  }
+	 
+
+		var tokens = {}; // Reset for each document (line)
 		var rawTokens = text.toLowerCase().match(wordPattern);
 		if (rawTokens == null) {
 			return;
 		}
-		var topicCounts = zeros(numTopics);
+		var topicCounts = zeros(numTopics); 
 
 		rawTokens.forEach(function(word) {
 			if (word !== "" && !stopwords[word] && word.length > 2) {
@@ -166,14 +180,14 @@ var lda = function lda() {
 				}
 				wordTopicCounts[word][topic] += 1;
 				vocabularyCounts[word] += 1;
-				topicCounts[topic] += 1;
+				topicCounts[topic] += 1; 
 				tokens.push({
 					"word": word,
 					"topic": topic
 				});
 			}
 		});
-
+        // 2016-04-04 OD: Build the documents nested object, which includes all woird/topic combinations in the object "tokens"
 		documents.push({
 			"originalOrder": documents.length,
 			"id": docID,
@@ -239,14 +253,16 @@ var lda = function lda() {
 		d3.select("#iters").text(completeSweeps);
 
 		if (completeSweeps >= requestedSweeps) {
-			/* 2016-04-03 OD: Need to move the functions below to ui.js
-				reorderDocuments();
-				sortTopicWords();
-				displayTopicWords();
-				//plotGraph();
-				plotMatrix();
-				updateVocabTable();
-			*/
+			
+			// 2016-04-04 OD: pass object lda, which has all objects nested within
+			setupLDA();
+			ui.reorderDocuments(lda);
+			ui.sortTopicWords(lda);
+			ui.displayTopicWords(lda);
+			//plotGraph();
+			ui.plotMatrix(lda);
+			ui.updateVocabTable(lda);
+			
 			return true;
 		} else {
 			return false;
@@ -263,86 +279,8 @@ var lda = function lda() {
 		}).join(" ");
 	};
 
+    // 2016-04-04 OD: Moved function getTopicCorrelations to ui.js 
 
-	/* This function will compute pairwise correlations between topics.
-	 * Unlike the correlated topic model (CTM) LDA doesn't have parameters
-	 * that represent topic correlations. But that doesn't mean that topics are
-	 * not correlated, it just means we have to estimate those values by
-	 * measuring which topics appear in documents together.
-	 */
-	var getTopicCorrelations = function() {
-
-		// initialize the matrix
-		correlationMatrix = new Array(numTopics);
-		for (var t1 = 0; t1 < numTopics; t1++) {
-			correlationMatrix[t1] = zeros(numTopics);
-		}
-
-		var topicProbabilities = zeros(numTopics);
-
-		// iterate once to get mean log topic proportions
-		documents.forEach(function(d, i) {
-
-			// We want to find the subset of topics that occur with non-trivial concentration in this document.
-			// Only consider topics with at least the minimum number of tokens that are at least 5% of the doc.
-			var documentTopics = new Array();
-			var tokenCutoff = Math.max(correlationMinTokens,
-				correlationMinProportion * d.tokens.length);
-
-			for (var topic = 0; topic < numTopics; topic++) {
-				if (d.topicCounts[topic] >= tokenCutoff) {
-					documentTopics.push(topic);
-					topicProbabilities[topic]++; // Count the number of docs with this topic
-				}
-			}
-
-			// Look at all pairs of topics that occur in the document.
-			for (var i = 0; i < documentTopics.length - 1; i++) {
-				for (var j = i + 1; j < documentTopics.length; j++) {
-					correlationMatrix[documentTopics[i]][documentTopics[j]]++;
-					correlationMatrix[documentTopics[j]][documentTopics[i]]++;
-				}
-			}
-		});
-		for (var t1 = 0; t1 < numTopics - 1; t1++) {
-			for (var t2 = t1 + 1; t2 < numTopics; t2++) {
-				correlationMatrix[t1][t2] = Math.log((documents.length *
-						correlationMatrix[t1][t2]) /
-					(topicProbabilities[t1] * topicProbabilities[t2]));
-				correlationMatrix[t2][t1] = Math.log((documents.length *
-						correlationMatrix[t2][t1]) /
-					(topicProbabilities[t1] * topicProbabilities[t2]));
-			}
-		}
-
-		return correlationMatrix;
-	}; // end of getTopicCorrelations
-
-	var getCorrelationGraph = function(correlationMatrix, cutoff) {
-		var graph = {
-			"nodes": [],
-			"links": []
-		};
-		for (var topic = 0; topic < numTopics; topic++) {
-			graph.nodes.push({
-				"name": topic,
-				"group": 1,
-				"words": topNWords(topicWordCounts[topic], 3)
-			});
-		}
-		for (var t1 = 0; t1 < numTopics; t1++) {
-			for (var t2 = 0; t2 < numTopics; t2++) {
-				if (t1 !== t2 && correlationMatrix[t1][t2] > cutoff) {
-					graph.links.push({
-						"source": t1,
-						"target": t2,
-						"value": correlationMatrix[t1][t2]
-					});
-				}
-			}
-		}
-		return graph;
-	}; // end of getCorrelationGraph
 
 
 	var mostFrequentWords = function() {
@@ -383,7 +321,30 @@ var lda = function lda() {
 			"..." :
 			s;
 	}
-
+    var setupLDA= function(){
+    	// 2016-04-04 OD: setup lda object which inlcudes nested objects, passing information to other modules via reference
+    	lda.documents = documents;
+    	lda.numTopics = numTopics;
+    	ldaO.wordPattern = wordPattern;
+    	lda.documentTopicSmoothing = documentTopicSmoothing
+    	lda.topicWordSmoothing = topicWordSmoothing
+		lda.vocabularySize = vocabularySize;
+		lda.vocabularyCounts = vocabularyCounts;
+		lda.selectedTopic = selectedTopic; 
+		lda.correlationMinTokens = correlationMinTokens;
+		lda.linkDistance = linkDistance;
+		lda.correlationCutoff = correlationCutoff;
+		lda.docSortSmoothing = docSortSmoothing;
+		lda.sumDocSortSmoothing = sumDocSortSmoothing;
+		lda.completeSweeps = completeSweeps;
+		lda.requestedSweeps = requestedSweeps;
+		lda.selectedTopic = selectedTopic;
+		lda.wordTopicCounts = wordTopicCounts;
+		lda.topicWordCounts = topicWordCounts;
+		lda.tokensPerTopic = tokensPerTopic;
+		lda.topicWeights = topicWeights;
+		lda.truncateLength = truncateLength;
+    }
 	// 2016-04-03 OD: Move all functions for downloading results to downloadResults.js
 
 }; // end of "lda"

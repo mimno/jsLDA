@@ -1,6 +1,6 @@
  /* Functions for download links */
   function saveDocTopics() {
-    debugger;
+
     var target = document.getElementById('dl-page'); // 2016-03-27 OD: start progress spinner on the downloads page
     var spinner = new Spinner(opts).spin(target);
     var docTopicsCSV = "";
@@ -103,4 +103,3 @@
       "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(
         samplingStateCSV));
   }
-
