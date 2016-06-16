@@ -31,31 +31,40 @@ var stopwordsURL = QueryString.stoplist ? QueryString.stoplist : "stoplist.txt";
 documentsURL = decodeURIComponent(documentsURL);
 stopwordsURL = decodeURIComponent(stopwordsURL);
 
-var zeros = function(n) {
+function zeros(n) {
   var x = new Array(n);
   for (var i = 0; i < n; i++) { x[i] = 0.0; }
   return x;
-};
+}
 
-var timeSeriesWidth = 500;
-var timeSeriesHeight = 75;
+//
+// Topic model parameters
+//
 
 var documentTopicSmoothing = 0.1;
 var topicWordSmoothing = 0.01;
-
-var vocabularySize = 0;
-
-var vocabularyCounts = {};
-
-// Constants for calculating topic correlation. A doc with 5% or more tokens in a topic is "about" that topic.
-var correlationMinTokens = 2;
-var correlationMinProportion = 0.05;
-
 var numTopics = QueryString.topics ? parseInt(QueryString.topics) : 25;
 if (isNaN(numTopics)) {
   alert("The requested number of topics [" + QueryString.topics + "] couldn't be interpreted as a number");
   numTopics = 25;
 }
+
+//
+// Vocabulary statistics
+//
+
+var vocabularySize = 0;
+var vocabularyCounts = {};
+var displayingStopwords = false;
+
+// Constants for calculating topic correlation. A doc with 5% or more tokens in a topic is "about" that topic.
+var correlationMinTokens = 2;
+var correlationMinProportion = 0.05;
+
+// Constants for metadata correlation views.
+var timeSeriesWidth = 500;
+var timeSeriesHeight = 75;
+
 
 d3.select("#docs-url-input").attr("value", documentsURL);
 d3.select("#stops-url-input").attr("value", stopwordsURL);
@@ -98,14 +107,11 @@ var vis = d3.select("#corr-page")
       .attr("width", w)
       .attr("height", h);
 
-var linkDistance = 150;
-var correlationCutoff = 0.25;
-
 var truncate = function(s) { return s.length > 300 ? s.substring(0, 299) + "..." : s; }
 
 var wordPattern = XRegExp("\\p{L}[\\p{L}\\p{P}]*\\p{L}", "g");
 
-var parseLine = function( line ) {
+function parseLine ( line ) {
   if (line == "") { return; }
   var docID = documents.length;
   var docDate = "";
@@ -123,21 +129,36 @@ var parseLine = function( line ) {
   var topicCounts = zeros(numTopics);
 
   rawTokens.forEach(function (word) {
-    if (word !== "" && ! stopwords[word] && word.length > 2) {
+    if (word !== "") {
       var topic = Math.floor(Math.random() * numTopics);
-      tokensPerTopic[topic]++;
-      if (! wordTopicCounts[word]) {
-        wordTopicCounts[word] = {};
-        vocabularySize++;
-        vocabularyCounts[word] = 0;
+	  
+	  if (word.length <= 2) { stopwords[word] = 1; }
+	  
+	  var isStopword = stopwords[word];
+	  if (isStopword) {
+		  // Record counts for stopwords, but nothing else
+		  if (! vocabularyCounts[word]) {
+			  vocabularyCounts[word] = 1;
+		  }
+		  else {
+		  	vocabularyCounts[word] += 1;
+		  }
+	  }
+	  else {
+	      tokensPerTopic[topic]++;
+	      if (! wordTopicCounts[word]) {
+	        wordTopicCounts[word] = {};
+	        vocabularySize++;
+	        vocabularyCounts[word] = 0;
+	      }
+	      if (! wordTopicCounts[word][topic]) {
+	        wordTopicCounts[word][topic] = 0;
+	      }
+	      wordTopicCounts[word][topic] += 1;
+	      vocabularyCounts[word] += 1;
+	      topicCounts[topic] += 1;
       }
-      if (! wordTopicCounts[word][topic]) {
-        wordTopicCounts[word][topic] = 0;
-      }
-      wordTopicCounts[word][topic] += 1;
-      vocabularyCounts[word] += 1;
-      topicCounts[topic] += 1;
-      tokens.push({"word":word, "topic":topic });
+      tokens.push({"word":word, "topic":topic, "isStopword":isStopword });
     }
   });
 
@@ -145,79 +166,147 @@ var parseLine = function( line ) {
   d3.select("div#docs-page").append("div")
      .attr("class", "document")
      .text("[" + docID + "] " + truncate(text));
-};
-
-var sampleDiscrete = function(weights) {
-  var sample = d3.sum(weights) * Math.random();
-  var i = 0;
-  sample -= weights[i];
-  while (sample > 0.0) {
-    i++;
-    sample -= weights[i];
-  }
-  return i;
 }
 
-var sweep = function() {
-  documents.forEach( function( currentDoc, i ) {
-    var docTopicCounts = currentDoc.topicCounts;
-    for (var position = 0; position < currentDoc.tokens.length; position++) {
-      var token = currentDoc.tokens[position];
-      tokensPerTopic[ token.topic ]--;
-      var currentWordTopicCounts = wordTopicCounts[ token.word ];
-      currentWordTopicCounts[ token.topic ]--;
-	  if (currentWordTopicCounts[ token.topic ] == 0) {
-		  delete(currentWordTopicCounts[ token.topic ]);
-	  }
-      docTopicCounts[ token.topic ]--;
+function addStop(word) {
+	stopwords[word] = 1;
+	vocabularySize--;
+	delete wordTopicCounts[word];
+	
+    documents.forEach( function( currentDoc, i ) {
+		var docTopicCounts = currentDoc.topicCounts;
+		for (var position = 0; position < currentDoc.tokens.length; position++) {
+			var token = currentDoc.tokens[position];
+			if (token.word === word) {
+				token.isStopword = true;
+				tokensPerTopic[ token.topic ]--;
+				docTopicCounts[ token.topic ]--;
+			}
+		}
+	});
+	
+	sortTopicWords();
+	displayTopicWords();
+	reorderDocuments();
+	vocabTable();
+}
 
-      for (var topic = 0; topic < numTopics; topic++) {
-        if (currentWordTopicCounts[ topic ]) {
-          topicWeights[topic] =
-            (documentTopicSmoothing + docTopicCounts[topic]) *
-            (topicWordSmoothing + currentWordTopicCounts[ topic ]) /
-            (vocabularySize * topicWordSmoothing + tokensPerTopic[topic]);
-        }
-        else {
-          topicWeights[topic] =
-            (documentTopicSmoothing + docTopicCounts[topic]) * topicWordSmoothing /
-            (vocabularySize * topicWordSmoothing + tokensPerTopic[topic]);
-        }
-      }
+function removeStop(word) {
+	delete stopwords[word];
+	vocabularySize++;
+	wordTopicCounts[word] = {};
+	var currentWordTopicCounts = wordTopicCounts[ word ];
+	
+    documents.forEach( function( currentDoc, i ) {
+		var docTopicCounts = currentDoc.topicCounts;
+		for (var position = 0; position < currentDoc.tokens.length; position++) {
+			var token = currentDoc.tokens[position];
+			if (token.word === word) {
+				token.isStopword = false;
+				tokensPerTopic[ token.topic ]++;
+				docTopicCounts[ token.topic ]++;
+				if (! currentWordTopicCounts[ token.topic ]) {
+					currentWordTopicCounts[ token.topic ] = 1;
+				}
+				else {
+					currentWordTopicCounts[ token.topic ] += 1;
+				}
+			}
+		}
+	});
+	
+	sortTopicWords();
+	displayTopicWords();
+	reorderDocuments();
+	vocabTable();
+}
 
-      token.topic = sampleDiscrete(topicWeights);
-      tokensPerTopic[ token.topic ]++;
-      if (! currentWordTopicCounts[ token.topic ]) {
-        currentWordTopicCounts[ token.topic ] = 1;
-      }
-      else {
-        currentWordTopicCounts[ token.topic ] += 1;
-      }
-      docTopicCounts[ token.topic ]++;
-    }
-  });
+function sweep() {
+	var startTime = Date.now();
+		
+	var topicNormalizers = zeros(numTopics);
+	for (var topic = 0; topic < numTopics; topic++) {
+		topicNormalizers[topic] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[topic]);
+	}
 
-  completeSweeps += 1;
-  d3.select("#iters").text(completeSweeps);
-  if (completeSweeps >= requestedSweeps) {
+	for (var doc = 0; doc < documents.length; doc++) {
+		var currentDoc = documents[doc];
+		var docTopicCounts = currentDoc.topicCounts;
+		
+		for (var position = 0; position < currentDoc.tokens.length; position++) {
+			var token = currentDoc.tokens[position];
+			if (token.isStopword) { continue; }
+
+			tokensPerTopic[ token.topic ]--;
+			var currentWordTopicCounts = wordTopicCounts[ token.word ];
+			currentWordTopicCounts[ token.topic ]--;
+			if (currentWordTopicCounts[ token.topic ] == 0) {
+			  //delete(currentWordTopicCounts[ token.topic ]);
+			}
+			docTopicCounts[ token.topic ]--;
+			topicNormalizers[ token.topic ] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[ token.topic ]);
+
+			var sum = 0.0;
+			for (var topic = 0; topic < numTopics; topic++) {
+				if (currentWordTopicCounts[ topic ]) {
+				  topicWeights[topic] =
+				    (documentTopicSmoothing + docTopicCounts[topic]) *
+				    (topicWordSmoothing + currentWordTopicCounts[ topic ]) *
+					topicNormalizers[topic];
+				}
+				else {
+				  topicWeights[topic] =
+				    (documentTopicSmoothing + docTopicCounts[topic]) *
+					topicWordSmoothing *
+					topicNormalizers[topic];
+				}
+				sum += topicWeights[topic];
+			}
+		    
+			// Sample from an unnormalized discrete distribution
+			var sample = sum * Math.random();
+		    var i = 0;
+		    sample -= topicWeights[i];
+		    while (sample > 0.0) {
+		      i++;
+		      sample -= topicWeights[i];
+		 	}
+			token.topic = i;
+			
+			tokensPerTopic[ token.topic ]++;
+			if (! currentWordTopicCounts[ token.topic ]) {
+				currentWordTopicCounts[ token.topic ] = 1;
+			}
+			else {
+				currentWordTopicCounts[ token.topic ] += 1;
+			}
+			docTopicCounts[ token.topic ]++;
+			
+			topicNormalizers[ token.topic ] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[ token.topic ]);
+		}
+	}
+  
+	//console.log("sweep in " + (Date.now() - startTime) + " ms");
+	completeSweeps += 1;
+	d3.select("#iters").text(completeSweeps);
+	if (completeSweeps >= requestedSweeps) {
 	  reorderDocuments(); 
 	  sortTopicWords();
 	  displayTopicWords();
-	  //plotGraph();
 	  plotMatrix();
-	  updateVocabTable();
+	  vocabTable();
 	  timeSeries();
 	  return true;
-  }
-  else {
+	}
+	else {
 	  return false;
-  }
+	}
 }
 
 var byCountDescending = function (a,b) { return b.count - a.count; };
 var topNWords = function(wordCounts, n) { return wordCounts.slice(0,n).map( function(d) { return d.word; }).join(" "); };
 
-var sortTopicWords = function() {
+function sortTopicWords() {
   topicWordCounts = [];
   for (var topic = 0; topic < numTopics; topic++) {
     topicWordCounts[topic] = [];
@@ -232,9 +321,9 @@ var sortTopicWords = function() {
   for (var topic = 0; topic < numTopics; topic++) {
     topicWordCounts[topic].sort(byCountDescending);
   }  
-};
+}
 
-var displayTopicWords = function() {
+function displayTopicWords() {
   var topicTopWords = [];
 
   for (var topic = 0; topic < numTopics; topic++) {
@@ -252,10 +341,10 @@ var displayTopicWords = function() {
   topicLines.transition().text(function(d, i) { return "[" + i + "] " + d; });
 
   return topicWordCounts;
-};
+}
 
-var reorderDocuments = function() {
-	var format = d3.format(".2g");
+function reorderDocuments() {
+  var format = d3.format(".2g");
 	
   if (selectedTopic === -1) {
     documents.sort(function(a, b) { return d3.ascending(a.originalOrder, b.originalOrder); });
@@ -280,6 +369,10 @@ var reorderDocuments = function() {
       .text(function(d) { return "[" + documents[d.docID].id + "/" + format(d.score * 100) + "%] " + truncate(documents[d.docID].originalText); });
    }
 }
+
+//
+// Metadata plots
+//
 
 var topicTimeGroups = new Array();
 
@@ -315,13 +408,17 @@ function timeSeries() {
 	
 }
 
+//
+// Topic correlations
+//
+
 /* This function will compute pairwise correlations between topics.
  * Unlike the correlated topic model (CTM) LDA doesn't have parameters
  * that represent topic correlations. But that doesn't mean that topics are
  * not correlated, it just means we have to estimate those values by 
  * measuring which topics appear in documents together.
  */
-var getTopicCorrelations = function() {
+function getTopicCorrelations() {
 
   // initialize the matrix
   correlationMatrix = new Array(numTopics);
@@ -364,9 +461,9 @@ var getTopicCorrelations = function() {
   }
 
   return correlationMatrix;
-};
+}
 
-var getCorrelationGraph = function(correlationMatrix, cutoff) {
+function getCorrelationGraph(correlationMatrix, cutoff) {
   var graph = {"nodes": [], "links": []};
   for (var topic = 0; topic < numTopics; topic++) {
     graph.nodes.push({"name": topic, "group": 1, "words": topNWords(topicWordCounts[topic], 3)});
@@ -379,9 +476,9 @@ var getCorrelationGraph = function(correlationMatrix, cutoff) {
     }
   }
   return graph;
-};
+}
 
-var plotMatrix = function() {
+function plotMatrix() {
 	var left = 50;
 	var right = 500;
 	var top = 50;
@@ -429,9 +526,9 @@ var plotMatrix = function() {
 		var tooltip = d3.select("#tooltip");
 		tooltip.style("visibility", "hidden");
 	});
-};
+}
 
-var toggleTopicDocuments = function(topic) {
+function toggleTopicDocuments(topic) {
   if (topic === selectedTopic) {
     // unselect the topic
     d3.selectAll("div.topicwords").attr("class", "topicwords");
@@ -442,50 +539,55 @@ var toggleTopicDocuments = function(topic) {
     selectedTopic = topic;
   }
   reorderDocuments();
-};
+}
 
-var mostFrequentWords = function() {
+//
+// Vocabulary
+//
+
+function mostFrequentWords(includeStops) {
   // Convert the random-access map to a list of word:count pairs that
   //  we can then sort.
   var wordCounts = [];
   for (var word in vocabularyCounts) {
-    wordCounts.push({"word":word, "count":vocabularyCounts[word]});
+	  if (includeStops || ! stopwords[word]) {
+		  wordCounts.push({"word":word, "count":vocabularyCounts[word]});
+	  }
   }
 
   wordCounts.sort(byCountDescending);
   return wordCounts;
-};
+}
 
-var entropy = function(counts) {
+function entropy(counts) {
 	counts = counts.filter(function (x) { return x > 0.0; });
 	var sum = d3.sum(counts);
 	return Math.log(sum) - (1.0 / sum) * d3.sum(counts, function (x) { return x * Math.log(x); });
 }
 
-var vocabTable = function() {
-	var format = d3.format(".2g");
-	var wordFrequencies = mostFrequentWords().slice(0, 499);
-	var rows = d3.select("#vocab-table tbody").selectAll("tr")
-	 .data(wordFrequencies)
-	 .enter().append("tr");
-	var cells = rows.selectAll("td")
-	.data(function(row) {
-	 return [ { column: "word", value: row.word, class: "" }, 
-	 		  { column: "count", value: row.count, class: "unselectable" },
-	 		  { column: "entropy", value: format(1.0 - (entropy(d3.values(wordTopicCounts[row.word])) / Math.log(numTopics))), class: "unselectable" } ];
-	})
-	.enter().append("td")
-	.attr("class", function (d) { return d.class; })
-	.text(function (d) { return d.value; });
-};
+function specificity(word) {
+	return 1.0 - (entropy(d3.values(wordTopicCounts[word])) / Math.log(numTopics));
+}
 
-var updateVocabTable = function() {
+function vocabTable() {
 	var format = d3.format(".2g");
-	var rows = d3.select("#vocab-table tbody").selectAll("tr");
-	rows.selectAll("td")
-	     .data(function(row) { return [ { column: "word", value: row.word, class: "" }, { column: "count", value: row.count, class: "unselectable" }, { column: "entropy", value: format(1.0 - (entropy(d3.values(wordTopicCounts[row.word])) / Math.log(numTopics))), class: "unselectable" } ]; })
-		 .text(function (d) { return d.value; });
-		 
+	var wordFrequencies = mostFrequentWords(displayingStopwords).slice(0, 499);
+	var table = d3.select("#vocab-table tbody");
+	table.selectAll("tr").remove();
+	
+	wordFrequencies.forEach(function (d) {
+		var isStopword = stopwords[d.word];
+		var row = table.append("tr");
+		row.append("td").text(d.word).style("color", isStopword ? "#444444" : "#000000");
+		row.append("td").text(d.count);
+		row.append("td").text(isStopword ? "NA" : format(specificity(d.word)));
+		row.append("td").append("button").text(stopwords[d.word] ? "unstop" : "stop")
+		.on("click", function () {
+			console.log(d.word);
+			if (! isStopword) { addStop(d.word); }
+			else { removeStop(d.word); }
+		});
+	});
 }
 
 /* Declare functions for various tabs and buttons */
@@ -523,8 +625,22 @@ d3.select("#sweep").on("click", function() {
   requestedSweeps += 50;
   d3.timer(sweep);
 });
+d3.select("#showStops").on("click", function () {
+	if (displayingStopwords) {
+		displayingStopwords = false;
+		this.innerText = "Show stopwords";
+		vocabTable();
+	}
+	else {
+		displayingStopwords = true;
+		this.innerText = "Hide stopwords";		
+		vocabTable();
+	}
+});
 
-/* Functions for download links */
+//  
+// Functions for download links
+//
 function saveDocTopics() {
 	var docTopicsCSV = "";
     var topicProbabilities = zeros(numTopics);
@@ -589,7 +705,9 @@ function saveState() {
 	var state = "DocID,Word,Topic";
 	documents.forEach(function(d, docID) {
 		d.tokens.forEach(function(token, position) {
-			state += docID + ",\"" + token.word + "\"," + token.topic + "\n";
+			if (! token.isStopword) {
+				state += docID + ",\"" + token.word + "\"," + token.topic + "\n";
+			}
 		});
 	});
 		

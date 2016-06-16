@@ -6,7 +6,7 @@ div.sidebar div.sidebox { margin: 5px; padding: 10px; }
 div.top { background-color: #ddd; margin: 5px; padding: 10px; -moz-border-radius: 10px; border-radius: 10px; }
 form { float: right; }
 
-div#topics div { color: #555; margin-bottom: 10px; padding: 5px; }
+div#topics div { color: #555; margin-bottom: 10px; padding: 5px; cursor: default;}
 div#topics div.selected { border-right: solid black 2px; font-weight: bold;}
 div#topics div:hover { background-color: #ccc; }
 
