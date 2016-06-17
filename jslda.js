@@ -56,6 +56,8 @@ if (isNaN(numTopics)) {
 var vocabularySize = 0;
 var vocabularyCounts = {};
 var displayingStopwords = false;
+var sortVocabByTopic = false;
+var specificityScale = d3.scale.linear().domain([0,1]).range(["#ffffff", "#99d8c9"]);
 
 // Constants for calculating topic correlation. A doc with 5% or more tokens in a topic is "about" that topic.
 var correlationMinTokens = 2;
@@ -533,26 +535,43 @@ function toggleTopicDocuments(topic) {
     // unselect the topic
     d3.selectAll("div.topicwords").attr("class", "topicwords");
     selectedTopic = -1;
+	
+	sortVocabByTopic = false;
+	d3.select("#sortVocabByTopic").text("Sort by topic")
   }
   else {
     d3.selectAll("div.topicwords").attr("class", function(d, i) { return i === topic ? "topicwords selected" : "topicwords"; });
     selectedTopic = topic;
   }
   reorderDocuments();
+  vocabTable();
 }
 
 //
 // Vocabulary
 //
 
-function mostFrequentWords(includeStops) {
+function mostFrequentWords(includeStops, sortByTopic) {
   // Convert the random-access map to a list of word:count pairs that
   //  we can then sort.
   var wordCounts = [];
-  for (var word in vocabularyCounts) {
-	  if (includeStops || ! stopwords[word]) {
-		  wordCounts.push({"word":word, "count":vocabularyCounts[word]});
-	  }
+  
+  if (sortByTopic) {
+	  for (var word in vocabularyCounts) {
+		  if (wordTopicCounts[word] && 
+			  wordTopicCounts[word][selectedTopic]) {
+			  wordCounts.push({"word":word,
+			  	 			"count":wordTopicCounts[word][selectedTopic]});
+		  }
+	  }  	
+  }
+  else {
+	  for (var word in vocabularyCounts) {
+		  if (includeStops || ! stopwords[word]) {
+			  wordCounts.push({"word":word,
+			  	 			"count":vocabularyCounts[word]});
+		  }
+	  }  	
   }
 
   wordCounts.sort(byCountDescending);
@@ -571,16 +590,18 @@ function specificity(word) {
 
 function vocabTable() {
 	var format = d3.format(".2g");
-	var wordFrequencies = mostFrequentWords(displayingStopwords).slice(0, 499);
+	var wordFrequencies = mostFrequentWords(displayingStopwords, sortVocabByTopic).slice(0, 499);
 	var table = d3.select("#vocab-table tbody");
 	table.selectAll("tr").remove();
 	
 	wordFrequencies.forEach(function (d) {
 		var isStopword = stopwords[d.word];
+		var score = specificity(d.word);
 		var row = table.append("tr");
 		row.append("td").text(d.word).style("color", isStopword ? "#444444" : "#000000");
 		row.append("td").text(d.count);
-		row.append("td").text(isStopword ? "NA" : format(specificity(d.word)));
+		row.append("td").text(isStopword ? "NA" : format(score))
+		.style("background-color", specificityScale(score));
 		row.append("td").append("button").text(stopwords[d.word] ? "unstop" : "stop")
 		.on("click", function () {
 			console.log(d.word);
@@ -637,6 +658,19 @@ d3.select("#showStops").on("click", function () {
 		vocabTable();
 	}
 });
+d3.select("#sortVocabByTopic").on("click", function () {
+	if (sortVocabByTopic) {
+		sortVocabByTopic = false;
+		this.innerText = "Sort by topic";
+		vocabTable();
+	}
+	else {
+		sortVocabByTopic = true;
+		this.innerText = "Sort by frequency";		
+		vocabTable();
+	}
+});
+
 
 //  
 // Functions for download links
