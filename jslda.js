@@ -1,7 +1,7 @@
 
 /** This function is copied from stack overflow: http://stackoverflow.com/users/19068/quentin */
 var QueryString = function () {
-  // This function is anonymous, is executed immediately and 
+  // This function is anonymous, is executed immediately and
   // the return value is assigned to QueryString!
   var query_string = {};
   var query = window.location.search.substring(1);
@@ -19,7 +19,7 @@ var QueryString = function () {
     } else {
       query_string[pair[0]].push(pair[1]);
     }
-  } 
+  }
     return query_string;
 } ();
 
@@ -30,6 +30,14 @@ var stopwordsURL = QueryString.stoplist ? QueryString.stoplist : "stoplist.txt";
 
 documentsURL = decodeURIComponent(documentsURL);
 stopwordsURL = decodeURIComponent(stopwordsURL);
+
+/**********************************************************************************
+  2016-08-20 Owen Dall: Make record delimiter configurable
+***********************************************************************************/
+// Unix/Mac OS X => LF => "\n"; Windows => CRLF => "\r\n"
+var recordDelimiter = "\n";
+// Revisit placing this option in the UI
+/**********************************************************************************/
 
 function zeros(n) {
   var x = new Array(n);
@@ -75,7 +83,7 @@ d3.select("#num-topics-input").attr("value", numTopics);
 var stopwords = {};
 //  ["the", "and", "of", "for", "in", "a", "on", "is", "an", "this", "to", "by", "abstract", "paper", "based", "with", "or", "are", "from", "upon", "we", "us", "our", "can", "be", "using", "which", "that", "d", "n", "as", "it", "show", "these", "such", "s", "t", "i", "j", "have", "one", "new", "one", "has", "learning", "model", "data", "models", "two", "used", "results"].forEach( function(d) { stopwords[d] = 1; } );
 
-// Use a more agressive smoothing parameter to sort 
+// Use a more agressive smoothing parameter to sort
 //  documents by topic. This has the effect of preferring
 //  longer documents.
 var docSortSmoothing = 10.0;
@@ -133,9 +141,9 @@ function parseLine ( line ) {
   rawTokens.forEach(function (word) {
     if (word !== "") {
       var topic = Math.floor(Math.random() * numTopics);
-	  
+
 	  if (word.length <= 2) { stopwords[word] = 1; }
-	  
+
 	  var isStopword = stopwords[word];
 	  if (isStopword) {
 		  // Record counts for stopwords, but nothing else
@@ -174,7 +182,7 @@ function addStop(word) {
 	stopwords[word] = 1;
 	vocabularySize--;
 	delete wordTopicCounts[word];
-	
+
     documents.forEach( function( currentDoc, i ) {
 		var docTopicCounts = currentDoc.topicCounts;
 		for (var position = 0; position < currentDoc.tokens.length; position++) {
@@ -186,7 +194,7 @@ function addStop(word) {
 			}
 		}
 	});
-	
+
 	sortTopicWords();
 	displayTopicWords();
 	reorderDocuments();
@@ -198,7 +206,7 @@ function removeStop(word) {
 	vocabularySize++;
 	wordTopicCounts[word] = {};
 	var currentWordTopicCounts = wordTopicCounts[ word ];
-	
+
     documents.forEach( function( currentDoc, i ) {
 		var docTopicCounts = currentDoc.topicCounts;
 		for (var position = 0; position < currentDoc.tokens.length; position++) {
@@ -216,7 +224,7 @@ function removeStop(word) {
 			}
 		}
 	});
-	
+
 	sortTopicWords();
 	displayTopicWords();
 	reorderDocuments();
@@ -225,7 +233,7 @@ function removeStop(word) {
 
 function sweep() {
 	var startTime = Date.now();
-		
+
 	var topicNormalizers = zeros(numTopics);
 	for (var topic = 0; topic < numTopics; topic++) {
 		topicNormalizers[topic] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[topic]);
@@ -234,7 +242,7 @@ function sweep() {
 	for (var doc = 0; doc < documents.length; doc++) {
 		var currentDoc = documents[doc];
 		var docTopicCounts = currentDoc.topicCounts;
-		
+
 		for (var position = 0; position < currentDoc.tokens.length; position++) {
 			var token = currentDoc.tokens[position];
 			if (token.isStopword) { continue; }
@@ -264,7 +272,7 @@ function sweep() {
 				}
 				sum += topicWeights[topic];
 			}
-		    
+
 			// Sample from an unnormalized discrete distribution
 			var sample = sum * Math.random();
 		    var i = 0;
@@ -274,7 +282,7 @@ function sweep() {
 		      sample -= topicWeights[i];
 		 	}
 			token.topic = i;
-			
+
 			tokensPerTopic[ token.topic ]++;
 			if (! currentWordTopicCounts[ token.topic ]) {
 				currentWordTopicCounts[ token.topic ] = 1;
@@ -283,16 +291,16 @@ function sweep() {
 				currentWordTopicCounts[ token.topic ] += 1;
 			}
 			docTopicCounts[ token.topic ]++;
-			
+
 			topicNormalizers[ token.topic ] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[ token.topic ]);
 		}
 	}
-  
+
 	//console.log("sweep in " + (Date.now() - startTime) + " ms");
 	completeSweeps += 1;
 	d3.select("#iters").text(completeSweeps);
 	if (completeSweeps >= requestedSweeps) {
-	  reorderDocuments(); 
+	  reorderDocuments();
 	  sortTopicWords();
 	  displayTopicWords();
 	  plotMatrix();
@@ -322,7 +330,7 @@ function sortTopicWords() {
 
   for (var topic = 0; topic < numTopics; topic++) {
     topicWordCounts[topic].sort(byCountDescending);
-  }  
+  }
 }
 
 function displayTopicWords() {
@@ -347,12 +355,12 @@ function displayTopicWords() {
 
 function reorderDocuments() {
   var format = d3.format(".2g");
-	
+
   if (selectedTopic === -1) {
     documents.sort(function(a, b) { return d3.ascending(a.originalOrder, b.originalOrder); });
     d3.selectAll("div.document").data(documents)
       .style("display", "block")
-      .text(function(d) { return "[" + d.id + "] " + truncate(d.originalText); });  
+      .text(function(d) { return "[" + d.id + "] " + truncate(d.originalText); });
   }
   else {
 	  var scores = documents.map(function (doc, i) {
@@ -361,7 +369,7 @@ function reorderDocuments() {
 	  scores.sort(function(a, b) {
 		  return b.score - a.score;
 	  });
-    /*documents.sort(function(a, b) { 
+    /*documents.sort(function(a, b) {
         var score1 = (a.topicCounts[selectedTopic] + docSortSmoothing) / (a.tokens.length + sumDocSortSmoothing);
         var score2 = (b.topicCounts[selectedTopic] + docSortSmoothing) / (b.tokens.length + sumDocSortSmoothing);
         return d3.descending(score1, score2);
@@ -381,33 +389,33 @@ var topicTimeGroups = new Array();
 function createTimeSVGs () {
 	var tsPage = d3.select("#ts-page");
 	var tsSVG = tsPage.append("svg").attr("height", timeSeriesHeight * numTopics).attr("width", timeSeriesWidth);
-	
+
 	for (var topic = 0; topic < numTopics; topic++) {
 		topicTimeGroups.push(tsSVG.append("g").attr("transform", "translate(0," + (timeSeriesHeight * topic) + ")"));
 		topicTimeGroups[topic].append("path").style("fill", "#ccc");
 		topicTimeGroups[topic].append("text").attr("y", 40);
 	}
-	
+
 }
 
 function timeSeries() {
 	var tsPage = d3.select("#ts-page");
-	
+
 	for (var topic = 0; topic < numTopics; topic++) {
 		var topicProportions = documents.map(function (d) { return {date: d.date, p: d.topicCounts[topic] / d.tokens.length}; })
 		var topicMeans = d3.nest().key(function (d) {return d.date; }).rollup(function (d) {return d3.mean(d, function (x) {return x.p}); }).entries(topicProportions);
-		
+
 		var xScale = d3.scale.linear().domain([0, topicMeans.length]).range([0, timeSeriesWidth]);
 		var yScale = d3.scale.linear().domain([0, 0.2]).range([timeSeriesHeight, 0]);
 		var area = d3.svg.area()
 		.x(function (d, i) { return xScale(i); })
 		.y(function (d) { return yScale(d.values); })
 		.y0(yScale(0));
-		
+
 		topicTimeGroups[topic].select("path").attr("d", area(topicMeans));
 		topicTimeGroups[topic].select("text").text(topNWords(topicWordCounts[topic], 3))
 	}
-	
+
 }
 
 //
@@ -417,7 +425,7 @@ function timeSeries() {
 /* This function will compute pairwise correlations between topics.
  * Unlike the correlated topic model (CTM) LDA doesn't have parameters
  * that represent topic correlations. But that doesn't mean that topics are
- * not correlated, it just means we have to estimate those values by 
+ * not correlated, it just means we have to estimate those values by
  * measuring which topics appear in documents together.
  */
 function getTopicCorrelations() {
@@ -439,7 +447,7 @@ function getTopicCorrelations() {
     var tokenCutoff = Math.max(correlationMinTokens, correlationMinProportion * d.tokens.length);
 
     for (var topic = 0; topic < numTopics; topic++) {
-      if (d.topicCounts[topic] >= tokenCutoff) { 
+      if (d.topicCounts[topic] >= tokenCutoff) {
         documentTopics.push(topic);
         topicProbabilities[topic]++; // Count the number of docs with this topic
       }
@@ -485,19 +493,19 @@ function plotMatrix() {
 	var right = 500;
 	var top = 50;
 	var bottom = 500;
-	
+
 	var correlationMatrix = getTopicCorrelations();
 	var correlationGraph = getCorrelationGraph(correlationMatrix, -100.0);
-	
+
 	var topicScale = d3.scale.ordinal().domain(d3.range(numTopics)).rangePoints([left, right]);
 	var radiusScale = d3.scale.sqrt().domain([0, 1.0]).range([0, 450 / (2 * numTopics)]);
-	
+
 	var horizontalTopics = vis.selectAll("text.hor").data(correlationGraph.nodes);
 	horizontalTopics.enter().append("text")
 		.attr("class", "hor")
 		.attr("x", right + 10)
 		.attr("y", function(node) { return topicScale(node.name); });
-	
+
 	horizontalTopics
 		.text(function(node) { return node.words; });
 
@@ -510,7 +518,7 @@ function plotMatrix() {
 
 	verticalTopics
 		.text(function(node) { return node.words; });
-	
+
 	var circles = vis.selectAll("circle").data(correlationGraph.links);
 	circles.enter().append("circle");
 
@@ -535,7 +543,7 @@ function toggleTopicDocuments(topic) {
     // unselect the topic
     d3.selectAll("div.topicwords").attr("class", "topicwords");
     selectedTopic = -1;
-	
+
 	sortVocabByTopic = false;
 	d3.select("#sortVocabByTopic").text("Sort by topic")
   }
@@ -555,15 +563,15 @@ function mostFrequentWords(includeStops, sortByTopic) {
   // Convert the random-access map to a list of word:count pairs that
   //  we can then sort.
   var wordCounts = [];
-  
+
   if (sortByTopic) {
 	  for (var word in vocabularyCounts) {
-		  if (wordTopicCounts[word] && 
+		  if (wordTopicCounts[word] &&
 			  wordTopicCounts[word][selectedTopic]) {
 			  wordCounts.push({"word":word,
 			  	 			"count":wordTopicCounts[word][selectedTopic]});
 		  }
-	  }  	
+	  }
   }
   else {
 	  for (var word in vocabularyCounts) {
@@ -571,7 +579,7 @@ function mostFrequentWords(includeStops, sortByTopic) {
 			  wordCounts.push({"word":word,
 			  	 			"count":vocabularyCounts[word]});
 		  }
-	  }  	
+	  }
   }
 
   wordCounts.sort(byCountDescending);
@@ -593,7 +601,7 @@ function vocabTable() {
 	var wordFrequencies = mostFrequentWords(displayingStopwords, sortVocabByTopic).slice(0, 499);
 	var table = d3.select("#vocab-table tbody");
 	table.selectAll("tr").remove();
-	
+
 	wordFrequencies.forEach(function (d) {
 		var isStopword = stopwords[d.word];
 		var score = specificity(d.word);
@@ -654,7 +662,7 @@ d3.select("#showStops").on("click", function () {
 	}
 	else {
 		displayingStopwords = true;
-		this.innerText = "Hide stopwords";		
+		this.innerText = "Hide stopwords";
 		vocabTable();
 	}
 });
@@ -666,85 +674,90 @@ d3.select("#sortVocabByTopic").on("click", function () {
 	}
 	else {
 		sortVocabByTopic = true;
-		this.innerText = "Sort by frequency";		
+		this.innerText = "Sort by frequency";
 		vocabTable();
 	}
 });
 
 
-//  
+//
 // Functions for download links
 //
 function saveDocTopics() {
-	var docTopicsCSV = "";
+    // 2016-08-20 Owen Dall: Added header row for easier reading
+	var docTopicsCSV = "Doc," + d3.range(0, numTopics).map(function(t) {return "Topic-" + t; } ).join(",") + recordDelimiter;
     var topicProbabilities = zeros(numTopics);
-	
+
     documents.forEach(function(d, i) {
-		docTopicsCSV += d.id + "," + d.topicCounts.map(function (x) { return d3.round(x / d.tokens.length, 8); }).join(",") + "\n";
-	});	
-	
+		docTopicsCSV += d.id + "," + d.topicCounts.map(function (x) { return d3.round(x / d.tokens.length, 8); }).join(",") + recordDelimiter;
+	});
+
 	d3.select("#doctopics-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(docTopicsCSV));
 }
 
 function saveTopicWords() {
-	var topicWordsCSV = "word," + d3.range(0, numTopics).map(function(t) {return "topic" + t; } ).join(",") + "\n";
+    // 2016-08-20 Owen Dall: Minor edits to header row
+	var topicWordsCSV = "Word," + d3.range(0, numTopics).map(function(t) {return "Topic-" + t; } ).join(",") + recordDelimiter;
     for (var word in wordTopicCounts) {
       var topicProbabilities = zeros(numTopics);
       for (var topic in wordTopicCounts[word]) {
         topicProbabilities[topic] = d3.round(wordTopicCounts[word][topic] / tokensPerTopic[topic], 8);
       }
-	  topicWordsCSV += word + "," + topicProbabilities.join(",") + "\n";
+	  topicWordsCSV += word + "," + topicProbabilities.join(",") + recordDelimiter;
     }
 
 	d3.select("#topicwords-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(topicWordsCSV));
 }
 
 function saveTopicKeys() {
-	var keysCSV = "Topic,TokenCount,Words\n";
- 
+	var keysCSV = "Topic,Token Count,Words" + recordDelimiter; // 2016-08-20 Owen Dall: Minor edit
+
 	if (topicWordCounts.length == 0) { sortTopicWords(); }
 
     for (var topic = 0; topic < numTopics; topic++) {
-		keysCSV += topic + "," + tokensPerTopic[topic] + ",\"" + topNWords(topicWordCounts[topic], 10) + "\"\n";
+		keysCSV += topic + "," + tokensPerTopic[topic] + ",\"" + topNWords(topicWordCounts[topic], 10) + "\""+ recordDelimiter;
     }
-	
+
 	d3.select("#keys-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(keysCSV));
 }
 
 function saveTopicPMI() {
-	var pmiCSV = "";
-	var matrix = getTopicCorrelations();
-	
-    matrix.forEach(function(row) { pmiCSV += row.map(function (x) { return d3.round(x, 8); }).join(",") + "\n"; });	
-	
-	d3.select("#topictopic-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(pmiCSV));
+    // 2016-08-21 Owen Dall: Added Row and Column Labels for easy viewing.
+    // Put column header for each topic, starting at column 2:
+	var pmiCSV = ","+ d3.range(0, numTopics).map(function(t) {return "Topic-" + t; } ).join(",") + recordDelimiter;
+    //
+    var matrix = getTopicCorrelations();
+    // Now add the topic number as first column for each row (pass "i" into the fuction)
+    matrix.forEach(function(row,i) { pmiCSV += "Topic-"+ i +"," + row.map(function (x,i) { return d3.round(x, 8); }).join(",") + recordDelimiter; });
+    //
+    d3.select("#topictopic-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(pmiCSV));
 }
 
 function saveGraph() {
-	var graphCSV = "Source,Target,Weight,Type\n";
+	var graphCSV = "Source,Target,Weight,Type" + recordDelimiter;
     var topicProbabilities = zeros(numTopics);
-	
+
     documents.forEach(function(d, i) {
 		d.topicCounts.forEach(function(x, topic) {
 			if (x > 0.0) {
 				graphCSV += d.id + "," + topic + "," + d3.round(x / d.tokens.length, 8) + ",undirected\n";
 			}
 		});
-	});	
-	
+	});
+
 	d3.select("#graph-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(graphCSV));
 }
 
 function saveState() {
-	var state = "DocID,Word,Topic";
+	var state = "DocID,Word,Topic" + recordDelimiter; // 2016-08-20 Owen Dall: Need record delimiter after header row
 	documents.forEach(function(d, docID) {
 		d.tokens.forEach(function(token, position) {
 			if (! token.isStopword) {
-				state += docID + ",\"" + token.word + "\"," + token.topic + "\n";
+				state += docID + ",\"" + token.word + "\"," + token.topic + recordDelimiter;
 			}
 		});
 	});
-		
+
 	d3.select("#state-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(state));
 }
 
@@ -759,10 +772,10 @@ function ready(error, stops, lines) {
   if (error) { alert("One of these URLs didn't work:\n " + stopwordsURL + "\n " + documentsURL); }
   else {
     // Create the stoplist
-    stops.split("\n").forEach(function (w) { stopwords[w] = 1; });
+    stops.split(recordDelimiter).forEach(function (w) { stopwords[w] = 1; });
 
     // Load documents and populate the vocabulary
-    lines.split("\n").forEach(parseLine);
+    lines.split(recordDelimiter).forEach(parseLine);
 
     sortTopicWords();
     displayTopicWords();
@@ -775,4 +788,3 @@ function ready(error, stops, lines) {
 	timeSeries();
   }
 }
-
