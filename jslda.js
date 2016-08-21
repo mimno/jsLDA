@@ -36,6 +36,7 @@ stopwordsURL = decodeURIComponent(stopwordsURL);
 ***********************************************************************************/
 // Unix/Mac OS X => LF => "\n"; Windows => CRLF => "\r\n"
 var recordDelimiter = "\n";
+
 // Revisit placing this option in the UI
 /**********************************************************************************/
 
@@ -461,6 +462,7 @@ function getTopicCorrelations() {
       }
     }
   });
+
   for (var t1 = 0; t1 < numTopics - 1; t1++) {
     for (var t2 = t1 + 1; t2 < numTopics; t2++) {
       correlationMatrix[t1][t2] = Math.log((documents.length * correlationMatrix[t1][t2]) /
@@ -710,7 +712,7 @@ function saveTopicWords() {
 }
 
 function saveTopicKeys() {
-	var keysCSV = "Topic,Token Count,Words" + recordDelimiter; // 2016-08-20 Owen Dall: Minor edit
+	var keysCSV = "Topic,Token Count,Top 10 Words " + recordDelimiter; // 2016-08-20 Owen Dall: Minor edits
 
 	if (topicWordCounts.length == 0) { sortTopicWords(); }
 
@@ -723,6 +725,7 @@ function saveTopicKeys() {
 
 function saveTopicPMI() {
     // 2016-08-21 Owen Dall: Added Row and Column Labels for easy viewing.
+    // PMI = Pointwise Mutual Information
     // Put column header for each topic, starting at column 2:
 	var pmiCSV = ","+ d3.range(0, numTopics).map(function(t) {return "Topic-" + t; } ).join(",") + recordDelimiter;
     //
