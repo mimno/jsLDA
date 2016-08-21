@@ -1,5 +1,11 @@
-jsLDA
-=====
+jsLDA-AI
+========
+This is a fork of jsLDA by David Mimno with enhancements by Agile Innovations, LLC team.
+
+2016-08-20
+- Forked by Owen Dall
+- Created CHANGELOG.md to follow standards suggested by  https://github.com/olivierlacan/keep-a-changelog
+-
 
 An implementation of latent Dirichlet allocation in javascript. A [live demonstration](http://mimno.infosci.cornell.edu/jsLDA/jslda.html) is available.
 
@@ -42,4 +48,4 @@ Download results:
 ----------------
 
 You can create reports about your topic model. Hit the `Downloads` tab.
-Reports are in CSV format. The `sampling state` file contains the same information as a Mallet state file, but in a more compact format. 
+Reports are in CSV format. The `sampling state` file contains the same information as a Mallet state file, but in a more compact format.
