@@ -35,9 +35,9 @@ stopwordsURL = decodeURIComponent(stopwordsURL);
   2016-08-20 Owen Dall: Make record delimiter configurable
 ***********************************************************************************/
 // Unix/Mac OS X => LF => "\n"; Windows => CRLF => "\r\n"
+// Revisit placing this option in the UI
 var recordDelimiter = "\n";
 
-// Revisit placing this option in the UI
 /**********************************************************************************/
 
 function zeros(n) {
@@ -202,7 +202,7 @@ function addStop(word) {
 	vocabTable();
 }
 
-function removeStop(word) {
+   function removeStop(word) {
 	delete stopwords[word];
 	vocabularySize++;
 	wordTopicCounts[word] = {};
@@ -691,7 +691,11 @@ function saveDocTopics() {
     var topicProbabilities = zeros(numTopics);
 
     documents.forEach(function(d, i) {
-		docTopicsCSV += d.id + "," + d.topicCounts.map(function (x) { return d3.round(x / d.tokens.length, 8); }).join(",") + recordDelimiter;
+	  // 2016-09-25 Owen Dall: Don't use d.tokens.length as it includes stopwords not included in topicCounts
+      var tokenSum = d3.sum(d.topicCounts);
+      topicProbabilities  = d.topicCounts.map(function (topicTokenCount) { return d3.round(topicTokenCount / tokenSum, 8); });
+      docTopicsCSV += d.id + "," + topicProbabilities.join(",") + exportRecordDelimiter;
+	  // docTopicsCSV += d.id + "," + d.topicCounts.map(function (x) { return d3.round(x / d.tokens.length, 8); }).join(",") + recordDelimiter;
 	});
 
 	d3.select("#doctopics-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(docTopicsCSV));
@@ -762,6 +766,7 @@ function saveState() {
 	});
 
 	d3.select("#state-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(state));
+	debugger;
 }
 
 
@@ -779,7 +784,9 @@ function ready(error, stops, lines) {
 
     // Load documents and populate the vocabulary
     lines.split(recordDelimiter).forEach(parseLine);
-
+    // Temp for debuggging
+    saveState();
+    debugger;
     sortTopicWords();
     displayTopicWords();
 	toggleTopicDocuments(0);
