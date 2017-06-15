@@ -15,10 +15,11 @@
 <div id="form" class="top">
   <button id="sweep">Run 50 iterations</button>
   Iterations: <span id="iters">0</span>
-<form>
-  <span>Documents URL: <input id="docs-url-input" type="text" name="docs" value=""/></span>
-  <span>Stoplist URL: <input id="stops-url-input" type="text" name="stoplist" value=""/></span>
-  # Topics: <input id="num-topics-input" type="text" name="topics" value="" size="3"/> <input type="submit" value="Load"/>
+<form onSubmit="event.preventDefault(); queueLoad();">
+  <span>Document Upload: <input id="docs-file-input" type="file" onchange="onDocumentFileChange(this)" size="10"/></span>
+  <span>Stoplist Upload: <input id="stops-file-input" type="file" onchange="onStopwordFileChange(this)" size="10"/></span>
+  <span># Topics: <input id="num-topics-input" type="text" name="topics" value="" size="3"/></span>
+  <span><button id="load-inputs">Load</button></span>
 </form>
 </div>
 
