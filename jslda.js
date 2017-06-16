@@ -102,6 +102,36 @@ topicWeights.length = numTopics;
 
 var documents = [];
 
+function reset() {
+	vocabularySize = 0;
+	vocabularyCounts = {};
+	displayingStopwords = false;
+	sortVocabByTopic = false;
+	specificityScale = d3.scale.linear().domain([0,1]).range(["#ffffff", "#99d8c9"]);
+
+	d3.select("#num-topics-input").property("value", numTopics);
+
+	stopwords = {};
+
+	completeSweeps = 0;
+	requestedSweeps = 0;
+
+	selectedTopic = -1;
+
+	wordTopicCounts = {};
+	topicWordCounts = [];
+	tokensPerTopic = [];
+	tokensPerTopic.length = numTopics;
+	for (var topic = 0; topic < numTopics; topic++) {
+	  tokensPerTopic[topic] = 0;
+	}
+
+	topicWeights = [];
+	topicWeights.length = numTopics;
+	
+	documents = [];
+}
+
 /* SVG functions */
 var w = 650,
     h = 650,
@@ -780,6 +810,7 @@ function getDocsUpload(callback) {
 }
 
 function queueLoad() {
+  reset();
   queue()
     .defer(getStoplistUpload)
     .defer(getDocsUpload)
