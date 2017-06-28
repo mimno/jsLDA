@@ -63,7 +63,7 @@ var vocabularySize = 0;
 var vocabularyCounts = {};
 var displayingStopwords = false;
 var sortVocabByTopic = false;
-var specificityScale = d3.scale.linear().domain([0,1]).range(["#ffffff", "#99d8c9"]);
+var specificityScale = d3.scaleLinear().domain([0,1]).range(["#ffffff", "#99d8c9"]);
 
 // Constants for calculating topic correlation. A doc with 5% or more tokens in a topic is "about" that topic.
 var correlationMinTokens = 2;
@@ -101,13 +101,15 @@ var topicWeights = [];
 topicWeights.length = numTopics;
 
 var documents = [];
+var timer;
+var eightDigits = d3.format(".8")
 
 function reset() {
 	vocabularySize = 0;
 	vocabularyCounts = {};
 	displayingStopwords = false;
 	sortVocabByTopic = false;
-	specificityScale = d3.scale.linear().domain([0,1]).range(["#ffffff", "#99d8c9"]);
+	specificityScale = d3.scaleLinear().domain([0,1]).range(["#ffffff", "#99d8c9"]);
 
 	d3.select("#num-topics-input").property("value", numTopics);
 
@@ -134,8 +136,7 @@ function reset() {
 
 /* SVG functions */
 var w = 650,
-    h = 650,
-    fill = d3.scale.category20();
+    h = 650;
 
 var vis = d3.select("#corr-page")
     .append("svg:svg")
@@ -331,10 +332,7 @@ function sweep() {
 	  plotMatrix();
 	  vocabTable();
 	  timeSeries();
-	  return true;
-	}
-	else {
-	  return false;
+	  timer.stop();
 	}
 }
 
@@ -359,23 +357,24 @@ function sortTopicWords() {
 }
 
 function displayTopicWords() {
-  var topicTopWords = [];
+	var topicTopWords = [];
 
-  for (var topic = 0; topic < numTopics; topic++) {
-    topicTopWords.push(topNWords(topicWordCounts[topic], 10));
-  }
+	for (var topic = 0; topic < numTopics; topic++) {
+		topicTopWords.push(topNWords(topicWordCounts[topic], 10));
+	}
 
-  var topicLines = d3.select("div#topics").selectAll("div.topicwords")
-    .data(topicTopWords);
+	var topicLines = d3.select("div#topics").selectAll("div.topicwords")
+		.data(topicTopWords);
 
-  topicLines
-    .enter().append("div")
-    .attr("class", "topicwords")
-    .on("click", function(d, i) { toggleTopicDocuments(i); });
+	topicLines = topicLines
+	.enter().append("div")
+	.attr("class", "topicwords")
+	.on("click", function(d, i) { toggleTopicDocuments(i); })
+	.merge(topicLines);
 
-  topicLines.transition().text(function(d, i) { return "[" + i + "] " + d; });
+	topicLines.transition().text(function(d, i) { return "[" + i + "] " + d; });
 
-  return topicWordCounts;
+	return topicWordCounts;
 }
 
 function reorderDocuments() {
@@ -430,11 +429,11 @@ function timeSeries() {
 		var topicProportions = documents.map(function (d) { return {date: d.date, p: d.topicCounts[topic] / d.tokens.length}; })
 		var topicMeans = d3.nest().key(function (d) {return d.date; }).rollup(function (d) {return d3.mean(d, function (x) {return x.p}); }).entries(topicProportions);
 
-		var xScale = d3.scale.linear().domain([0, topicMeans.length]).range([0, timeSeriesWidth]);
-		var yScale = d3.scale.linear().domain([0, 0.2]).range([timeSeriesHeight, 0]);
-		var area = d3.svg.area()
+		var xScale = d3.scaleLinear().domain([0, topicMeans.length]).range([0, timeSeriesWidth]);
+		var yScale = d3.scaleLinear().domain([0, 0.2]).range([timeSeriesHeight, 0]);
+		var area = d3.area()
 		.x(function (d, i) { return xScale(i); })
-		.y(function (d) { return yScale(d.values); })
+		.y1(function (d) { return yScale(d.value); })
 		.y0(yScale(0));
 
 		topicTimeGroups[topic].select("path").attr("d", area(topicMeans));
@@ -522,30 +521,32 @@ function plotMatrix() {
 	var correlationMatrix = getTopicCorrelations();
 	var correlationGraph = getCorrelationGraph(correlationMatrix, -100.0);
 
-	var topicScale = d3.scale.ordinal().domain(d3.range(numTopics)).rangePoints([left, right]);
-	var radiusScale = d3.scale.sqrt().domain([0, 1.0]).range([0, 450 / (2 * numTopics)]);
+	var topicScale = d3.scalePoint().domain(d3.range(numTopics)).range([left, right]);
+	var radiusScale = d3.scaleSqrt().domain([0, 1.0]).range([0, 450 / (2 * numTopics)]);
 
 	var horizontalTopics = vis.selectAll("text.hor").data(correlationGraph.nodes);
-	horizontalTopics.enter().append("text")
+	horizontalTopics = horizontalTopics.enter().append("text")
 		.attr("class", "hor")
 		.attr("x", right + 10)
-		.attr("y", function(node) { return topicScale(node.name); });
+		.attr("y", function(node) { return topicScale(node.name); })
+	.merge(horizontalTopics);
 
 	horizontalTopics
 		.text(function(node) { return node.words; });
 
 	var verticalTopics = vis.selectAll("text.ver").data(correlationGraph.nodes);
-	verticalTopics.enter().append("text")
+	verticalTopics = verticalTopics.enter().append("text")
 		.attr("class", "ver")
 		.attr("x", function(node) { return topicScale(node.name); })
 		.attr("y", bottom + 10)
-		.attr("transform", function(node) { return "rotate(90," + topicScale(node.name) + "," + (bottom + 10) + ")"; });
+		.attr("transform", function(node) { return "rotate(90," + topicScale(node.name) + "," + (bottom + 10) + ")"; })
+	.merge(verticalTopics);
 
 	verticalTopics
 		.text(function(node) { return node.words; });
 
 	var circles = vis.selectAll("circle").data(correlationGraph.links);
-	circles.enter().append("circle");
+	circles = circles.enter().append("circle").merge(circles);
 
 	circles.attr("cx", function(link) { return topicScale(link.source); })
 	.attr("cy", function(link) { return topicScale(link.target); })
@@ -677,7 +678,7 @@ d3.select("#dl-tab").on("click", function() {
 });
 d3.select("#sweep").on("click", function() {
   requestedSweeps += 50;
-  d3.timer(sweep);
+  timer = d3.timer(sweep);
 });
 d3.select("#showStops").on("click", function () {
 	if (displayingStopwords) {
@@ -708,15 +709,27 @@ d3.select("#sortVocabByTopic").on("click", function () {
 //
 // Functions for download links
 //
+
+function toURL(s, type) {
+	// Chrome will not process data URIs larger than 2M
+	if (s.length < 1500000) {
+		return "data:Content-type:" + type + ";charset=UTF-8," + encodeURIComponent(s);
+	}
+	else {
+		var blob = new Blob([s], {type: type});
+		return window.URL.createObjectURL(blob);
+	}
+}
+
 function saveDocTopics() {
 	var docTopicsCSV = "";
     var topicProbabilities = zeros(numTopics);
 
     documents.forEach(function(d, i) {
-		docTopicsCSV += d.id + "," + d.topicCounts.map(function (x) { return d3.round(x / d.tokens.length, 8); }).join(",") + "\n";
+		docTopicsCSV += d.id + "," + d.topicCounts.map(function (x) { return eightDigits(x / d.tokens.length); }).join(",") + "\n";
 	});
 
-	d3.select("#doctopics-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(docTopicsCSV));
+	d3.select("#doctopics-dl").attr("href", toURL(docTopicsCSV, "text/csv"));
 }
 
 function saveTopicWords() {
@@ -724,12 +737,12 @@ function saveTopicWords() {
     for (var word in wordTopicCounts) {
       var topicProbabilities = zeros(numTopics);
       for (var topic in wordTopicCounts[word]) {
-        topicProbabilities[topic] = d3.round(wordTopicCounts[word][topic] / tokensPerTopic[topic], 8);
+        topicProbabilities[topic] = eightDigits(wordTopicCounts[word][topic] / tokensPerTopic[topic]);
       }
 	  topicWordsCSV += word + "," + topicProbabilities.join(",") + "\n";
     }
 
-	d3.select("#topicwords-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(topicWordsCSV));
+	d3.select("#topicwords-dl").attr("href", toURL(topicWordsCSV, "text/csv"));
 }
 
 function saveTopicKeys() {
@@ -741,16 +754,16 @@ function saveTopicKeys() {
 		keysCSV += topic + "," + tokensPerTopic[topic] + ",\"" + topNWords(topicWordCounts[topic], 10) + "\"\n";
     }
 
-	d3.select("#keys-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(keysCSV));
+	d3.select("#keys-dl").attr("href", toURL(keysCSV, "text/csv"));
 }
 
 function saveTopicPMI() {
 	var pmiCSV = "";
 	var matrix = getTopicCorrelations();
 
-    matrix.forEach(function(row) { pmiCSV += row.map(function (x) { return d3.round(x, 8); }).join(",") + "\n"; });
+    matrix.forEach(function(row) { pmiCSV += row.map(function (x) { return eightDigits(x); }).join(",") + "\n"; });
 
-	d3.select("#topictopic-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(pmiCSV));
+	d3.select("#topictopic-dl").attr("href", toURL(pmiCSV, "text/csv"));
 }
 
 function saveGraph() {
@@ -760,12 +773,12 @@ function saveGraph() {
     documents.forEach(function(d, i) {
 		d.topicCounts.forEach(function(x, topic) {
 			if (x > 0.0) {
-				graphCSV += d.id + "," + topic + "," + d3.round(x / d.tokens.length, 8) + ",undirected\n";
+				graphCSV += d.id + "," + topic + "," + eightDigits(x / d.tokens.length) + ",undirected\n";
 			}
 		});
 	});
 
-	d3.select("#graph-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(graphCSV));
+	d3.select("#graph-dl").attr("href", toURL(graphCSV, "text/csv"));
 }
 
 function saveState() {
@@ -778,7 +791,7 @@ function saveState() {
 		});
 	});
 
-	d3.select("#state-dl").attr("href", "data:Content-type:text/csv;charset=UTF-8," + encodeURIComponent(state));
+	d3.select("#state-dl").attr("href", toURL(state, "text/csv"));
 }
 
 function getStoplistUpload(callback) {
@@ -811,7 +824,7 @@ function getDocsUpload(callback) {
 
 function queueLoad() {
   reset();
-  queue()
+  d3.queue()
     .defer(getStoplistUpload)
     .defer(getDocsUpload)
     .await(ready);
@@ -820,22 +833,22 @@ function queueLoad() {
 queueLoad();
 
 function ready(error, stops, lines) {
-  if (error) { alert("File upload failed. Please try again."); throw error;}
-  else {
-    // Create the stoplist
-    stops.split("\n").forEach(function (w) { stopwords[w] = 1; });
+	if (error) { alert("File upload failed. Please try again."); throw error;}
+	else {
+		// Create the stoplist
+		stops.split("\n").forEach(function (w) { stopwords[w] = 1; });
 
-    // Load documents and populate the vocabulary
-    lines.split("\n").forEach(parseLine);
+		// Load documents and populate the vocabulary
+		lines.split("\n").forEach(parseLine);
 
-    sortTopicWords();
-    displayTopicWords();
-	toggleTopicDocuments(0);
-   //plotGraph();
-	plotMatrix();
+		sortTopicWords();
+		displayTopicWords();
+		toggleTopicDocuments(0);
+		//plotGraph();
 
-    vocabTable();
-	createTimeSVGs();
-	timeSeries();
-  }
+		plotMatrix();
+		vocabTable();
+		createTimeSVGs();
+		timeSeries();
+	}
 }
