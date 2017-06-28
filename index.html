@@ -1,0 +1,50 @@
+<html>
+<head>
+<title>In-browser topic modeling</title>
+<link href='http://fonts.googleapis.com/css?family=Alegreya' rel='stylesheet' type='text/css'>
+<style>
+body { font-family: Alegreya; margin-left: 20%; margin-right: 20%; margin-top: 100px; }
+.links { text-align: center; padding: 10px; }
+.links a { font-size: x-large; margin: 30px; padding: 10px; background-color: #00f; color: #fff; text-decoration: none; -moz-border-radius: 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<a href="https://github.com/mimno/jsLDA"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/38ef81f8aca64bb9a64448d0d70f1308ef5341ab/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6461726b626c75655f3132313632312e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png"></a>
+<h1>In-browser topic modeling</h1>
+<h3>David Mimno</h3>
+
+<p>
+Many people have found topic modeling a useful (and fun!) way to explore large text collections. 
+Unfortunately, running your own models usually requires installing statistical tools like R or <a href="http://mallet.cs.umass.edu">Mallet</a>.
+The goals of this project are to (a) make running topic models easy for anyone with a modern web browser, (b) explore the limits of statistical computing in Javascript and (c) allow tighter integration between models and web-based visualizations.
+</p>
+
+<p class="links">
+<a href="jslda.html">Run a model!</a>
+<a href="https://github.com/mimno/jsLDA">Get the source!</a>
+</p>
+
+<p><b>Instructions:</b></p>
+
+<p>When you open the page it will load a file containing documents and a file containing stopwords. The default is a corpus of paragraphs from US State of the Union speeches. It is large enough to get interesting results but small enough to train quickly.</p>
+
+<p>All words have initially been assigned randomly to topics. Click the "Run 50 iterations" button to start training. The iteration count will increase as the algorithm passes through the dataset multiple times.</p>
+
+<p>The topics on the right side of the page should now look more interesting. Run more iterations if you would like -- there's probably still a lot of room for improvement after only 50 iterations.</p>
+
+<p>Once you're satisfied with the model, you can click on a topic from the list on the right to sort documents in descending order by their use of that topic. Proportions are weighted so that longer documents will come first. You can also explore correlations between topics by clicking the "Topic Correlations" tab. This view shows a force directed layout with connections between topics that have correlations above a certain threshold. You can control this threshold with the slider: a low cutoff will display more edges, while a high cutoff will remove all but the strongest correlations.</p>
+
+<p><b>Using your own corpus:</b></p>
+
+<p>If you are ready to run your own corpus, you can upload documents and stopword list files directly to the browser. No data is sent over the internet. The format for the documents file is one document per line, with each line consisting of</p>
+
+<pre>[doc ID] [tab] [label] [tab] [text...]</pre>
+
+<p>(this is the default format for Mallet). The values in the "label" field are treated as a sequence of categories, which are shown in the "timeseries" tab.
+
+<p>The format for stopwords is one word per line. The "Vocabulary" tab allows you to dynamically add and remove stopwords, and shows which words appear in many topics and which are more specific. Unicode is supported, so most languages that have meaningful whitespace (ie not CJK) should work.</p>
+
+<p>The page works best in Chrome. Safari and Firefox work too, but may be considerably slower.</p>
+
+</body>
+</html>
