@@ -14,12 +14,8 @@
 <div id="form" class="top">
   <button id="sweep">Run 50 iterations</button>
   Iterations: <span id="iters">0</span>
-<form onSubmit="event.preventDefault(); queueLoad();">
-  <span>Document Upload: <input id="docs-file-input" type="file" onchange="onDocumentFileChange(this)" size="10"/></span>
-  <span>Stoplist Upload: <input id="stops-file-input" type="file" onchange="onStopwordFileChange(this)" size="10"/></span>
-  <span># Topics: <input id="num-topics-input" type="text" name="topics" value="" size="3"/></span>
-  <span><button id="load-inputs">Load</button></span>
-</form>
+
+<span id="num_topics_control">Train with <input id="num-topics-input" type="range" name="topics" value="25" min="3" max="100" oninput="updateTopicCount(this)" onchange="onTopicsChange(this)"/> <span id="num_topics_display">25</span> topics</span>
 </div>
 
 <div class="sidebar">
@@ -43,7 +39,16 @@
 <div id="pages">
 
 <div id="docs-page" class="page">
+  <div class="upload">
+  <form onSubmit="event.preventDefault(); queueLoad();">
+    <div>Use a different collection:</div>
+    <div>Documents <input id="docs-file-input" type="file" onchange="onDocumentFileChange(this)" size="10"/></div>
+    <div>Stoplist  <input id="stops-file-input" type="file" onchange="onStopwordFileChange(this)" size="10"/></div>
+    <div><button id="load-inputs">Upload</button></div>
+  </form>
+  </div>
 	<div class="help">Documents are sorted by their proportion of the currently selected topic, biased to prefer longer documents.</div>
+  
 </div>
 
 <div id="vocab-page" class="page">

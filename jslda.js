@@ -23,6 +23,48 @@ var QueryString = function () {
     return query_string;
 } ();
 
+// From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/keys
+if (!Object.keys) {
+  Object.keys = (function() {
+    'use strict';
+    var hasOwnProperty = Object.prototype.hasOwnProperty,
+        hasDontEnumBug = !({ toString: null }).propertyIsEnumerable('toString'),
+        dontEnums = [
+          'toString',
+          'toLocaleString',
+          'valueOf',
+          'hasOwnProperty',
+          'isPrototypeOf',
+          'propertyIsEnumerable',
+          'constructor'
+        ],
+        dontEnumsLength = dontEnums.length;
+
+    return function(obj) {
+      if (typeof obj !== 'function' && (typeof obj !== 'object' || obj === null)) {
+        throw new TypeError('Object.keys called on non-object');
+      }
+
+      var result = [], prop, i;
+
+      for (prop in obj) {
+        if (hasOwnProperty.call(obj, prop)) {
+          result.push(prop);
+        }
+      }
+
+      if (hasDontEnumBug) {
+        for (i = 0; i < dontEnumsLength; i++) {
+          if (hasOwnProperty.call(obj, dontEnums[i])) {
+            result.push(dontEnums[i]);
+          }
+        }
+      }
+      return result;
+    };
+  }());
+}
+
 // Change the strings at the end of these lines to reset the default filenames!
 
 var documentsURL = "documents.txt";
@@ -41,6 +83,22 @@ function zeros(n) {
   var x = new Array(n);
   for (var i = 0; i < n; i++) { x[i] = 0.0; }
   return x;
+}
+
+// This function is the callback for "input", it changes as we move the slider
+//  without releasing it.
+function updateTopicCount(input) {
+  d3.select("#num_topics_display").text(input.value);
+}
+// This function is the callback for "change", it only fires when we release the
+//  slider to select a new value.
+function onTopicsChange(input) {
+  console.log("Changing # of topics: " + input.value);
+  
+  var newNumTopics = Number(input.value);
+  if (! isNaN(newNumTopics) && newNumTopics > 0 && newNumTopics !== numTopics) {
+    changeNumTopics(Number(input.value));
+  }
 }
 
 //
@@ -91,57 +149,38 @@ var selectedTopic = -1;
 
 var wordTopicCounts = {};
 var topicWordCounts = [];
-var tokensPerTopic = [];
-tokensPerTopic.length = numTopics;
-for (var topic = 0; topic < numTopics; topic++) {
-  tokensPerTopic[topic] = 0;
-}
+var tokensPerTopic = zeros(numTopics);
 
-var topicWeights = [];
-topicWeights.length = numTopics;
+var topicWeights = zeros(numTopics);
 
 var documents = [];
 var timer;
 var eightDigits = d3.format(".8")
 
 function reset() {
-	vocabularySize = 0;
-	vocabularyCounts = {};
-	displayingStopwords = false;
-	sortVocabByTopic = false;
-	specificityScale = d3.scaleLinear().domain([0,1]).range(["#ffffff", "#99d8c9"]);
+  vocabularySize = 0;
+  vocabularyCounts = {};
+  displayingStopwords = false;
+  sortVocabByTopic = false;
+  specificityScale = d3.scaleLinear().domain([0,1]).range(["#ffffff", "#99d8c9"]);
 
-	d3.select("#num-topics-input").property("value", numTopics);
+  d3.select("#num-topics-input").property("value", numTopics);
 
-	stopwords = {};
+  stopwords = {};
 
-	completeSweeps = 0;
-	requestedSweeps = 0;
+  completeSweeps = 0;
+  requestedSweeps = 0;
+  d3.select("#iters").text(completeSweeps);
 
-	selectedTopic = -1;
+  selectedTopic = -1;
 
-	wordTopicCounts = {};
-	topicWordCounts = [];
-	tokensPerTopic = [];
-	tokensPerTopic.length = numTopics;
-	for (var topic = 0; topic < numTopics; topic++) {
-	  tokensPerTopic[topic] = 0;
-	}
-
-	topicWeights = [];
-	topicWeights.length = numTopics;
-	
-	documents = [];
+  wordTopicCounts = {};
+  topicWordCounts = [];
+  tokensPerTopic = zeros(numTopics);
+  topicWeights = zeros(numTopics);
+  
+  documents = [];
 }
-
-/* SVG functions */
-var w = 650,
-    h = 650;
-
-var vis = d3.select("#corr-page")
-    .append("svg:svg")
-      .attr("width", w)
-      .attr("height", h);
 
 var truncate = function(s) { return s.length > 300 ? s.substring(0, 299) + "..." : s; }
 
@@ -168,31 +207,31 @@ function parseLine ( line ) {
     if (word !== "") {
       var topic = Math.floor(Math.random() * numTopics);
 
-	  if (word.length <= 2) { stopwords[word] = 1; }
+      if (word.length <= 2) { stopwords[word] = 1; }
 
-	  var isStopword = stopwords[word];
-	  if (isStopword) {
-		  // Record counts for stopwords, but nothing else
-		  if (! vocabularyCounts[word]) {
-			  vocabularyCounts[word] = 1;
-		  }
-		  else {
-		  	vocabularyCounts[word] += 1;
-		  }
-	  }
-	  else {
-	      tokensPerTopic[topic]++;
-	      if (! wordTopicCounts[word]) {
-	        wordTopicCounts[word] = {};
-	        vocabularySize++;
-	        vocabularyCounts[word] = 0;
-	      }
-	      if (! wordTopicCounts[word][topic]) {
-	        wordTopicCounts[word][topic] = 0;
-	      }
-	      wordTopicCounts[word][topic] += 1;
-	      vocabularyCounts[word] += 1;
-	      topicCounts[topic] += 1;
+      var isStopword = stopwords[word];
+      if (isStopword) {
+        // Record counts for stopwords, but nothing else
+        if (! vocabularyCounts[word]) {
+          vocabularyCounts[word] = 1;
+        }
+        else {
+          vocabularyCounts[word] += 1;
+        }
+      }
+      else {
+        tokensPerTopic[topic]++;
+        if (! wordTopicCounts[word]) {
+          wordTopicCounts[word] = {};
+          vocabularySize++;
+          vocabularyCounts[word] = 0;
+        }
+        if (! wordTopicCounts[word][topic]) {
+          wordTopicCounts[word][topic] = 0;
+        }
+        wordTopicCounts[word][topic] += 1;
+        vocabularyCounts[word] += 1;
+        topicCounts[topic] += 1;
       }
       tokens.push({"word":word, "topic":topic, "isStopword":isStopword });
     }
@@ -204,136 +243,183 @@ function parseLine ( line ) {
      .text("[" + docID + "] " + truncate(text));
 }
 
+// Functions for changing the model after importing a collection
+
 function addStop(word) {
-	stopwords[word] = 1;
-	vocabularySize--;
-	delete wordTopicCounts[word];
+  stopwords[word] = 1;
+  vocabularySize--;
+  delete wordTopicCounts[word];
 
     documents.forEach( function( currentDoc, i ) {
-		var docTopicCounts = currentDoc.topicCounts;
-		for (var position = 0; position < currentDoc.tokens.length; position++) {
-			var token = currentDoc.tokens[position];
-			if (token.word === word) {
-				token.isStopword = true;
-				tokensPerTopic[ token.topic ]--;
-				docTopicCounts[ token.topic ]--;
-			}
-		}
-	});
+    var docTopicCounts = currentDoc.topicCounts;
+    for (var position = 0; position < currentDoc.tokens.length; position++) {
+      var token = currentDoc.tokens[position];
+      if (token.word === word) {
+        token.isStopword = true;
+        tokensPerTopic[ token.topic ]--;
+        docTopicCounts[ token.topic ]--;
+      }
+    }
+  });
 
-	sortTopicWords();
-	displayTopicWords();
-	reorderDocuments();
-	vocabTable();
+  sortTopicWords();
+  displayTopicWords();
+  reorderDocuments();
+  vocabTable();
 }
 
 function removeStop(word) {
-	delete stopwords[word];
-	vocabularySize++;
-	wordTopicCounts[word] = {};
-	var currentWordTopicCounts = wordTopicCounts[ word ];
+  delete stopwords[word];
+  vocabularySize++;
+  wordTopicCounts[word] = {};
+  var currentWordTopicCounts = wordTopicCounts[ word ];
 
     documents.forEach( function( currentDoc, i ) {
-		var docTopicCounts = currentDoc.topicCounts;
-		for (var position = 0; position < currentDoc.tokens.length; position++) {
-			var token = currentDoc.tokens[position];
-			if (token.word === word) {
-				token.isStopword = false;
-				tokensPerTopic[ token.topic ]++;
-				docTopicCounts[ token.topic ]++;
-				if (! currentWordTopicCounts[ token.topic ]) {
-					currentWordTopicCounts[ token.topic ] = 1;
-				}
-				else {
-					currentWordTopicCounts[ token.topic ] += 1;
-				}
-			}
-		}
-	});
+    var docTopicCounts = currentDoc.topicCounts;
+    for (var position = 0; position < currentDoc.tokens.length; position++) {
+      var token = currentDoc.tokens[position];
+      if (token.word === word) {
+        token.isStopword = false;
+        tokensPerTopic[ token.topic ]++;
+        docTopicCounts[ token.topic ]++;
+        if (! currentWordTopicCounts[ token.topic ]) {
+          currentWordTopicCounts[ token.topic ] = 1;
+        }
+        else {
+          currentWordTopicCounts[ token.topic ] += 1;
+        }
+      }
+    }
+  });
 
-	sortTopicWords();
-	displayTopicWords();
-	reorderDocuments();
-	vocabTable();
+  sortTopicWords();
+  displayTopicWords();
+  reorderDocuments();
+  vocabTable();
+}
+
+function changeNumTopics(numTopics_) {
+  numTopics = numTopics_;
+  selectedTopic = -1;
+  
+  completeSweeps = 0;
+  requestedSweeps = 0;
+  d3.select("#iters").text(completeSweeps);
+  
+  wordTopicCounts = {};
+  Object.keys(vocabularyCounts).forEach(function (word) { wordTopicCounts[word] = {} });
+  
+  topicWordCounts = [];
+  tokensPerTopic = zeros(numTopics);
+  topicWeights = zeros(numTopics);
+  
+  documents.forEach( function( currentDoc, i ) {
+    currentDoc.topicCounts = zeros(numTopics);
+    for (var position = 0; position < currentDoc.tokens.length; position++) {
+      var token = currentDoc.tokens[position];
+      token.topic = Math.floor(Math.random() * numTopics);
+      
+      if (! token.isStopword) {
+        tokensPerTopic[token.topic]++;
+        if (! wordTopicCounts[token.word][token.topic]) {
+          wordTopicCounts[token.word][token.topic] = 1;
+        }
+        else {
+          wordTopicCounts[token.word][token.topic] += 1;
+        }
+        currentDoc.topicCounts[token.topic] += 1;
+      }
+    }
+  });
+
+  sortTopicWords();
+  displayTopicWords();
+  reorderDocuments();
+  vocabTable();
+  
+  // Restart the visualizations
+  createTimeSVGs();
+  timeSeries();
+  plotMatrix();
 }
 
 function sweep() {
-	var startTime = Date.now();
+  var startTime = Date.now();
 
-	var topicNormalizers = zeros(numTopics);
-	for (var topic = 0; topic < numTopics; topic++) {
-		topicNormalizers[topic] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[topic]);
-	}
+  var topicNormalizers = zeros(numTopics);
+  for (var topic = 0; topic < numTopics; topic++) {
+    topicNormalizers[topic] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[topic]);
+  }
 
-	for (var doc = 0; doc < documents.length; doc++) {
-		var currentDoc = documents[doc];
-		var docTopicCounts = currentDoc.topicCounts;
+  for (var doc = 0; doc < documents.length; doc++) {
+    var currentDoc = documents[doc];
+    var docTopicCounts = currentDoc.topicCounts;
 
-		for (var position = 0; position < currentDoc.tokens.length; position++) {
-			var token = currentDoc.tokens[position];
-			if (token.isStopword) { continue; }
+    for (var position = 0; position < currentDoc.tokens.length; position++) {
+      var token = currentDoc.tokens[position];
+      if (token.isStopword) { continue; }
 
-			tokensPerTopic[ token.topic ]--;
-			var currentWordTopicCounts = wordTopicCounts[ token.word ];
-			currentWordTopicCounts[ token.topic ]--;
-			if (currentWordTopicCounts[ token.topic ] == 0) {
-			  //delete(currentWordTopicCounts[ token.topic ]);
-			}
-			docTopicCounts[ token.topic ]--;
-			topicNormalizers[ token.topic ] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[ token.topic ]);
+      tokensPerTopic[ token.topic ]--;
+      var currentWordTopicCounts = wordTopicCounts[ token.word ];
+      currentWordTopicCounts[ token.topic ]--;
+      if (currentWordTopicCounts[ token.topic ] == 0) {
+        //delete(currentWordTopicCounts[ token.topic ]);
+      }
+      docTopicCounts[ token.topic ]--;
+      topicNormalizers[ token.topic ] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[ token.topic ]);
 
-			var sum = 0.0;
-			for (var topic = 0; topic < numTopics; topic++) {
-				if (currentWordTopicCounts[ topic ]) {
-				  topicWeights[topic] =
-				    (documentTopicSmoothing + docTopicCounts[topic]) *
-				    (topicWordSmoothing + currentWordTopicCounts[ topic ]) *
-					topicNormalizers[topic];
-				}
-				else {
-				  topicWeights[topic] =
-				    (documentTopicSmoothing + docTopicCounts[topic]) *
-					topicWordSmoothing *
-					topicNormalizers[topic];
-				}
-				sum += topicWeights[topic];
-			}
+      var sum = 0.0;
+      for (var topic = 0; topic < numTopics; topic++) {
+        if (currentWordTopicCounts[ topic ]) {
+          topicWeights[topic] =
+            (documentTopicSmoothing + docTopicCounts[topic]) *
+            (topicWordSmoothing + currentWordTopicCounts[ topic ]) *
+          topicNormalizers[topic];
+        }
+        else {
+          topicWeights[topic] =
+            (documentTopicSmoothing + docTopicCounts[topic]) *
+          topicWordSmoothing *
+          topicNormalizers[topic];
+        }
+        sum += topicWeights[topic];
+      }
 
-			// Sample from an unnormalized discrete distribution
-			var sample = sum * Math.random();
-		    var i = 0;
-		    sample -= topicWeights[i];
-		    while (sample > 0.0) {
-		      i++;
-		      sample -= topicWeights[i];
-		 	}
-			token.topic = i;
+      // Sample from an unnormalized discrete distribution
+      var sample = sum * Math.random();
+        var i = 0;
+        sample -= topicWeights[i];
+        while (sample > 0.0) {
+          i++;
+          sample -= topicWeights[i];
+       }
+      token.topic = i;
 
-			tokensPerTopic[ token.topic ]++;
-			if (! currentWordTopicCounts[ token.topic ]) {
-				currentWordTopicCounts[ token.topic ] = 1;
-			}
-			else {
-				currentWordTopicCounts[ token.topic ] += 1;
-			}
-			docTopicCounts[ token.topic ]++;
+      tokensPerTopic[ token.topic ]++;
+      if (! currentWordTopicCounts[ token.topic ]) {
+        currentWordTopicCounts[ token.topic ] = 1;
+      }
+      else {
+        currentWordTopicCounts[ token.topic ] += 1;
+      }
+      docTopicCounts[ token.topic ]++;
 
-			topicNormalizers[ token.topic ] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[ token.topic ]);
-		}
-	}
+      topicNormalizers[ token.topic ] = 1.0 / (vocabularySize * topicWordSmoothing + tokensPerTopic[ token.topic ]);
+    }
+  }
 
-	//console.log("sweep in " + (Date.now() - startTime) + " ms");
-	completeSweeps += 1;
-	d3.select("#iters").text(completeSweeps);
-	if (completeSweeps >= requestedSweeps) {
-	  reorderDocuments();
-	  sortTopicWords();
-	  displayTopicWords();
-	  plotMatrix();
-	  vocabTable();
-	  timeSeries();
-	  timer.stop();
-	}
+  //console.log("sweep in " + (Date.now() - startTime) + " ms");
+  completeSweeps += 1;
+  d3.select("#iters").text(completeSweeps);
+  if (completeSweeps >= requestedSweeps) {
+    reorderDocuments();
+    sortTopicWords();
+    displayTopicWords();
+    plotMatrix();
+    vocabTable();
+    timeSeries();
+    timer.stop();
+  }
 }
 
 var byCountDescending = function (a,b) { return b.count - a.count; };
@@ -357,24 +443,26 @@ function sortTopicWords() {
 }
 
 function displayTopicWords() {
-	var topicTopWords = [];
+  var topicTopWords = [];
 
-	for (var topic = 0; topic < numTopics; topic++) {
-		topicTopWords.push(topNWords(topicWordCounts[topic], 10));
-	}
+  for (var topic = 0; topic < numTopics; topic++) {
+    topicTopWords.push(topNWords(topicWordCounts[topic], 10));
+  }
 
-	var topicLines = d3.select("div#topics").selectAll("div.topicwords")
-		.data(topicTopWords);
+  var topicLines = d3.select("div#topics").selectAll("div.topicwords")
+    .data(topicTopWords);
 
-	topicLines = topicLines
-	.enter().append("div")
-	.attr("class", "topicwords")
-	.on("click", function(d, i) { toggleTopicDocuments(i); })
-	.merge(topicLines);
+  topicLines.exit().remove();
+  
+  topicLines = topicLines
+  .enter().append("div")
+  .attr("class", "topicwords")
+  .on("click", function(d, i) { toggleTopicDocuments(i); })
+  .merge(topicLines);
+  
+  topicLines.transition().text(function(d, i) { return "[" + i + "] " + d; });
 
-	topicLines.transition().text(function(d, i) { return "[" + i + "] " + d; });
-
-	return topicWordCounts;
+  return topicWordCounts;
 }
 
 function reorderDocuments() {
@@ -387,12 +475,12 @@ function reorderDocuments() {
       .text(function(d) { return "[" + d.id + "] " + truncate(d.originalText); });
   }
   else {
-	  var scores = documents.map(function (doc, i) {
-		  return {docID: i, score: (doc.topicCounts[selectedTopic] + docSortSmoothing) / (doc.tokens.length + sumDocSortSmoothing)};
-	  });
-	  scores.sort(function(a, b) {
-		  return b.score - a.score;
-	  });
+    var scores = documents.map(function (doc, i) {
+      return {docID: i, score: (doc.topicCounts[selectedTopic] + docSortSmoothing) / (doc.tokens.length + sumDocSortSmoothing)};
+    });
+    scores.sort(function(a, b) {
+      return b.score - a.score;
+    });
     /*documents.sort(function(a, b) {
         var score1 = (a.topicCounts[selectedTopic] + docSortSmoothing) / (a.tokens.length + sumDocSortSmoothing);
         var score2 = (b.topicCounts[selectedTopic] + docSortSmoothing) / (b.tokens.length + sumDocSortSmoothing);
@@ -408,37 +496,41 @@ function reorderDocuments() {
 // Metadata plots
 //
 
-var topicTimeGroups = new Array();
+var topicTimeGroups;
 
 function createTimeSVGs () {
-	var tsPage = d3.select("#ts-page");
-	var tsSVG = tsPage.append("svg").attr("height", timeSeriesHeight * numTopics).attr("width", timeSeriesWidth);
+  var tsPage = d3.select("#ts-page");
+  // Restart the visualizations
+  tsPage.select("svg").remove();
+  topicTimeGroups = [];
+  
+  var tsSVG = tsPage.append("svg").attr("height", timeSeriesHeight * numTopics).attr("width", timeSeriesWidth);
 
-	for (var topic = 0; topic < numTopics; topic++) {
-		topicTimeGroups.push(tsSVG.append("g").attr("transform", "translate(0," + (timeSeriesHeight * topic) + ")"));
-		topicTimeGroups[topic].append("path").style("fill", "#ccc");
-		topicTimeGroups[topic].append("text").attr("y", 40);
-	}
+  for (var topic = 0; topic < numTopics; topic++) {
+    topicTimeGroups.push(tsSVG.append("g").attr("transform", "translate(0," + (timeSeriesHeight * topic) + ")"));
+    topicTimeGroups[topic].append("path").style("fill", "#ccc").style("stroke", "#fff");
+    topicTimeGroups[topic].append("text").attr("y", 40);
+  }
 
 }
 
 function timeSeries() {
-	var tsPage = d3.select("#ts-page");
+  var tsPage = d3.select("#ts-page");
 
-	for (var topic = 0; topic < numTopics; topic++) {
-		var topicProportions = documents.map(function (d) { return {date: d.date, p: d.topicCounts[topic] / d.tokens.length}; })
-		var topicMeans = d3.nest().key(function (d) {return d.date; }).rollup(function (d) {return d3.mean(d, function (x) {return x.p}); }).entries(topicProportions);
+  for (var topic = 0; topic < numTopics; topic++) {
+    var topicProportions = documents.map(function (d) { return {date: d.date, p: d.topicCounts[topic] / d.tokens.length}; })
+    var topicMeans = d3.nest().key(function (d) {return d.date; }).rollup(function (d) {return d3.mean(d, function (x) {return x.p}); }).entries(topicProportions);
 
-		var xScale = d3.scaleLinear().domain([0, topicMeans.length]).range([0, timeSeriesWidth]);
-		var yScale = d3.scaleLinear().domain([0, 0.2]).range([timeSeriesHeight, 0]);
-		var area = d3.area()
-		.x(function (d, i) { return xScale(i); })
-		.y1(function (d) { return yScale(d.value); })
-		.y0(yScale(0));
+    var xScale = d3.scaleLinear().domain([0, topicMeans.length]).range([0, timeSeriesWidth]);
+    var yScale = d3.scaleLinear().domain([0, 0.2]).range([timeSeriesHeight, 0]);
+    var area = d3.area()
+    .x(function (d, i) { return xScale(i); })
+    .y1(function (d) { return yScale(d.value); })
+    .y0(yScale(0));
 
-		topicTimeGroups[topic].select("path").attr("d", area(topicMeans));
-		topicTimeGroups[topic].select("text").text(topNWords(topicWordCounts[topic], 3))
-	}
+    topicTimeGroups[topic].select("path").attr("d", area(topicMeans));
+    topicTimeGroups[topic].select("text").text(topNWords(topicWordCounts[topic], 3))
+  }
 
 }
 
@@ -512,56 +604,69 @@ function getCorrelationGraph(correlationMatrix, cutoff) {
   return graph;
 }
 
+/* SVG functions */
+var w = 650,
+  h = 650;
+
+var vis = d3.select("#corr-page")
+  .append("svg")
+  .attr("width", w)
+  .attr("height", h);
+
 function plotMatrix() {
-	var left = 50;
-	var right = 500;
-	var top = 50;
-	var bottom = 500;
+  
+  var left = 50;
+  var right = 500;
+  var top = 50;
+  var bottom = 500;
 
-	var correlationMatrix = getTopicCorrelations();
-	var correlationGraph = getCorrelationGraph(correlationMatrix, -100.0);
+  var correlationMatrix = getTopicCorrelations();
+  var correlationGraph = getCorrelationGraph(correlationMatrix, -100.0);
 
-	var topicScale = d3.scalePoint().domain(d3.range(numTopics)).range([left, right]);
-	var radiusScale = d3.scaleSqrt().domain([0, 1.0]).range([0, 450 / (2 * numTopics)]);
+  var topicScale = d3.scalePoint().domain(d3.range(numTopics)).range([left, right]);
+  var radiusScale = d3.scaleSqrt().domain([0, 1.0]).range([0, 450 / (2 * numTopics)]);
 
-	var horizontalTopics = vis.selectAll("text.hor").data(correlationGraph.nodes);
-	horizontalTopics = horizontalTopics.enter().append("text")
-		.attr("class", "hor")
-		.attr("x", right + 10)
-		.attr("y", function(node) { return topicScale(node.name); })
-	.merge(horizontalTopics);
+  var horizontalTopics = vis.selectAll("text.hor").data(correlationGraph.nodes);
+  horizontalTopics.exit().remove();
+  horizontalTopics = horizontalTopics.enter().append("text")
+    .attr("class", "hor")
+  .merge(horizontalTopics);
 
-	horizontalTopics
-		.text(function(node) { return node.words; });
+  horizontalTopics
+    .attr("x", right + 10)
+    .attr("y", function(node) { return topicScale(node.name); })
+    .text(function(node) { return node.words; });
 
-	var verticalTopics = vis.selectAll("text.ver").data(correlationGraph.nodes);
-	verticalTopics = verticalTopics.enter().append("text")
-		.attr("class", "ver")
-		.attr("x", function(node) { return topicScale(node.name); })
-		.attr("y", bottom + 10)
-		.attr("transform", function(node) { return "rotate(90," + topicScale(node.name) + "," + (bottom + 10) + ")"; })
-	.merge(verticalTopics);
+  var verticalTopics = vis.selectAll("text.ver").data(correlationGraph.nodes);
+  verticalTopics.exit().remove();
+  verticalTopics = verticalTopics.enter().append("text")
+    .attr("class", "ver")
+  .merge(verticalTopics);
 
-	verticalTopics
-		.text(function(node) { return node.words; });
+  verticalTopics
+    .attr("x", function(node) { return topicScale(node.name); })
+    .attr("y", bottom + 10)
+    .attr("transform", function(node) { return "rotate(90," + topicScale(node.name) + "," + (bottom + 10) + ")"; })
+    .text(function(node) { return node.words; });
 
-	var circles = vis.selectAll("circle").data(correlationGraph.links);
-	circles = circles.enter().append("circle").merge(circles);
+  var circles = vis.selectAll("circle").data(correlationGraph.links);
+  circles.exit().remove();
+  circles = circles.enter().append("circle").merge(circles);
 
-	circles.attr("cx", function(link) { return topicScale(link.source); })
-	.attr("cy", function(link) { return topicScale(link.target); })
-	.attr("r", function (link) { return radiusScale(Math.abs(link.value)); })
-	.style("fill", function (link) { return link.value > 0.0 ? "#88f" : "#f88"; })
-	.on("mouseover", function (link) {
-		var tooltip = d3.select("#tooltip");
-		tooltip.style("visibility", "visible")
-		.style("top", (event.pageY-10)+"px").style("left",(event.pageX+20)+"px")
-		.text(correlationGraph.nodes[link.target].words + " / " + correlationGraph.nodes[link.source].words);
-	})
-	.on("mouseout", function () {
-		var tooltip = d3.select("#tooltip");
-		tooltip.style("visibility", "hidden");
-	});
+  circles.attr("cx", function(link) { return topicScale(link.source); })
+  .attr("cy", function(link) { return topicScale(link.target); })
+  .attr("r", function (link) { return radiusScale(Math.abs(link.value)); })
+  .style("fill", function (link) { return link.value > 0.0 ? "#88f" : "#f88"; })
+  .on("mouseover", function (link) {
+    var tooltip = d3.select("#tooltip");
+    tooltip.style("visibility", "visible")
+    .style("top", (event.pageY-10)+"px").style("left",(event.pageX+20)+"px")
+    .text(correlationGraph.nodes[link.target].words + " / " + correlationGraph.nodes[link.source].words);
+  })
+  .on("mouseout", function () {
+    var tooltip = d3.select("#tooltip");
+    tooltip.style("visibility", "hidden");
+  });
 }
 
 function toggleTopicDocuments(topic) {
@@ -570,8 +675,8 @@ function toggleTopicDocuments(topic) {
     d3.selectAll("div.topicwords").attr("class", "topicwords");
     selectedTopic = -1;
 
-	sortVocabByTopic = false;
-	d3.select("#sortVocabByTopic").text("Sort by topic")
+  sortVocabByTopic = false;
+  d3.select("#sortVocabByTopic").text("Sort by topic")
   }
   else {
     d3.selectAll("div.topicwords").attr("class", function(d, i) { return i === topic ? "topicwords selected" : "topicwords"; });
@@ -591,21 +696,21 @@ function mostFrequentWords(includeStops, sortByTopic) {
   var wordCounts = [];
 
   if (sortByTopic) {
-	  for (var word in vocabularyCounts) {
-		  if (wordTopicCounts[word] &&
-			  wordTopicCounts[word][selectedTopic]) {
-			  wordCounts.push({"word":word,
-			  	 			"count":wordTopicCounts[word][selectedTopic]});
-		  }
-	  }
+    for (var word in vocabularyCounts) {
+      if (wordTopicCounts[word] &&
+        wordTopicCounts[word][selectedTopic]) {
+        wordCounts.push({"word":word,
+                 "count":wordTopicCounts[word][selectedTopic]});
+      }
+    }
   }
   else {
-	  for (var word in vocabularyCounts) {
-		  if (includeStops || ! stopwords[word]) {
-			  wordCounts.push({"word":word,
-			  	 			"count":vocabularyCounts[word]});
-		  }
-	  }
+    for (var word in vocabularyCounts) {
+      if (includeStops || ! stopwords[word]) {
+        wordCounts.push({"word":word,
+                 "count":vocabularyCounts[word]});
+      }
+    }
   }
 
   wordCounts.sort(byCountDescending);
@@ -613,36 +718,36 @@ function mostFrequentWords(includeStops, sortByTopic) {
 }
 
 function entropy(counts) {
-	counts = counts.filter(function (x) { return x > 0.0; });
-	var sum = d3.sum(counts);
-	return Math.log(sum) - (1.0 / sum) * d3.sum(counts, function (x) { return x * Math.log(x); });
+  counts = counts.filter(function (x) { return x > 0.0; });
+  var sum = d3.sum(counts);
+  return Math.log(sum) - (1.0 / sum) * d3.sum(counts, function (x) { return x * Math.log(x); });
 }
 
 function specificity(word) {
-	return 1.0 - (entropy(d3.values(wordTopicCounts[word])) / Math.log(numTopics));
+  return 1.0 - (entropy(d3.values(wordTopicCounts[word])) / Math.log(numTopics));
 }
 
 function vocabTable() {
-	var format = d3.format(".2g");
-	var wordFrequencies = mostFrequentWords(displayingStopwords, sortVocabByTopic).slice(0, 499);
-	var table = d3.select("#vocab-table tbody");
-	table.selectAll("tr").remove();
+  var format = d3.format(".2g");
+  var wordFrequencies = mostFrequentWords(displayingStopwords, sortVocabByTopic).slice(0, 499);
+  var table = d3.select("#vocab-table tbody");
+  table.selectAll("tr").remove();
 
-	wordFrequencies.forEach(function (d) {
-		var isStopword = stopwords[d.word];
-		var score = specificity(d.word);
-		var row = table.append("tr");
-		row.append("td").text(d.word).style("color", isStopword ? "#444444" : "#000000");
-		row.append("td").text(d.count);
-		row.append("td").text(isStopword ? "NA" : format(score))
-		.style("background-color", specificityScale(score));
-		row.append("td").append("button").text(stopwords[d.word] ? "unstop" : "stop")
-		.on("click", function () {
-			console.log(d.word);
-			if (! isStopword) { addStop(d.word); }
-			else { removeStop(d.word); }
-		});
-	});
+  wordFrequencies.forEach(function (d) {
+    var isStopword = stopwords[d.word];
+    var score = specificity(d.word);
+    var row = table.append("tr");
+    row.append("td").text(d.word).style("color", isStopword ? "#444444" : "#000000");
+    row.append("td").text(d.count);
+    row.append("td").text(isStopword ? "NA" : format(score))
+    .style("background-color", specificityScale(score));
+    row.append("td").append("button").text(stopwords[d.word] ? "unstop" : "stop")
+    .on("click", function () {
+      console.log(d.word);
+      if (! isStopword) { addStop(d.word); }
+      else { removeStop(d.word); }
+    });
+  });
 }
 
 /* Declare functions for various tabs and buttons */
@@ -681,28 +786,28 @@ d3.select("#sweep").on("click", function() {
   timer = d3.timer(sweep);
 });
 d3.select("#showStops").on("click", function () {
-	if (displayingStopwords) {
-		displayingStopwords = false;
-		this.innerText = "Show stopwords";
-		vocabTable();
-	}
-	else {
-		displayingStopwords = true;
-		this.innerText = "Hide stopwords";
-		vocabTable();
-	}
+  if (displayingStopwords) {
+    displayingStopwords = false;
+    this.innerText = "Show stopwords";
+    vocabTable();
+  }
+  else {
+    displayingStopwords = true;
+    this.innerText = "Hide stopwords";
+    vocabTable();
+  }
 });
 d3.select("#sortVocabByTopic").on("click", function () {
-	if (sortVocabByTopic) {
-		sortVocabByTopic = false;
-		this.innerText = "Sort by topic";
-		vocabTable();
-	}
-	else {
-		sortVocabByTopic = true;
-		this.innerText = "Sort by frequency";
-		vocabTable();
-	}
+  if (sortVocabByTopic) {
+    sortVocabByTopic = false;
+    this.innerText = "Sort by topic";
+    vocabTable();
+  }
+  else {
+    sortVocabByTopic = true;
+    this.innerText = "Sort by frequency";
+    vocabTable();
+  }
 });
 
 
@@ -711,87 +816,87 @@ d3.select("#sortVocabByTopic").on("click", function () {
 //
 
 function toURL(s, type) {
-	// Chrome will not process data URIs larger than 2M
-	if (s.length < 1500000) {
-		return "data:Content-type:" + type + ";charset=UTF-8," + encodeURIComponent(s);
-	}
-	else {
-		var blob = new Blob([s], {type: type});
-		return window.URL.createObjectURL(blob);
-	}
+  // Chrome will not process data URIs larger than 2M
+  if (s.length < 1500000) {
+    return "data:Content-type:" + type + ";charset=UTF-8," + encodeURIComponent(s);
+  }
+  else {
+    var blob = new Blob([s], {type: type});
+    return window.URL.createObjectURL(blob);
+  }
 }
 
 function saveDocTopics() {
-	var docTopicsCSV = "";
+  var docTopicsCSV = "";
     var topicProbabilities = zeros(numTopics);
 
     documents.forEach(function(d, i) {
-		docTopicsCSV += d.id + "," + d.topicCounts.map(function (x) { return eightDigits(x / d.tokens.length); }).join(",") + "\n";
-	});
+    docTopicsCSV += d.id + "," + d.topicCounts.map(function (x) { return eightDigits(x / d.tokens.length); }).join(",") + "\n";
+  });
 
-	d3.select("#doctopics-dl").attr("href", toURL(docTopicsCSV, "text/csv"));
+  d3.select("#doctopics-dl").attr("href", toURL(docTopicsCSV, "text/csv"));
 }
 
 function saveTopicWords() {
-	var topicWordsCSV = "word," + d3.range(0, numTopics).map(function(t) {return "topic" + t; } ).join(",") + "\n";
+  var topicWordsCSV = "word," + d3.range(0, numTopics).map(function(t) {return "topic" + t; } ).join(",") + "\n";
     for (var word in wordTopicCounts) {
       var topicProbabilities = zeros(numTopics);
       for (var topic in wordTopicCounts[word]) {
         topicProbabilities[topic] = eightDigits(wordTopicCounts[word][topic] / tokensPerTopic[topic]);
       }
-	  topicWordsCSV += word + "," + topicProbabilities.join(",") + "\n";
+    topicWordsCSV += word + "," + topicProbabilities.join(",") + "\n";
     }
 
-	d3.select("#topicwords-dl").attr("href", toURL(topicWordsCSV, "text/csv"));
+  d3.select("#topicwords-dl").attr("href", toURL(topicWordsCSV, "text/csv"));
 }
 
 function saveTopicKeys() {
-	var keysCSV = "Topic,TokenCount,Words\n";
+  var keysCSV = "Topic,TokenCount,Words\n";
 
-	if (topicWordCounts.length == 0) { sortTopicWords(); }
+  if (topicWordCounts.length == 0) { sortTopicWords(); }
 
     for (var topic = 0; topic < numTopics; topic++) {
-		keysCSV += topic + "," + tokensPerTopic[topic] + ",\"" + topNWords(topicWordCounts[topic], 10) + "\"\n";
+    keysCSV += topic + "," + tokensPerTopic[topic] + ",\"" + topNWords(topicWordCounts[topic], 10) + "\"\n";
     }
 
-	d3.select("#keys-dl").attr("href", toURL(keysCSV, "text/csv"));
+  d3.select("#keys-dl").attr("href", toURL(keysCSV, "text/csv"));
 }
 
 function saveTopicPMI() {
-	var pmiCSV = "";
-	var matrix = getTopicCorrelations();
+  var pmiCSV = "";
+  var matrix = getTopicCorrelations();
 
     matrix.forEach(function(row) { pmiCSV += row.map(function (x) { return eightDigits(x); }).join(",") + "\n"; });
 
-	d3.select("#topictopic-dl").attr("href", toURL(pmiCSV, "text/csv"));
+  d3.select("#topictopic-dl").attr("href", toURL(pmiCSV, "text/csv"));
 }
 
 function saveGraph() {
-	var graphCSV = "Source,Target,Weight,Type\n";
+  var graphCSV = "Source,Target,Weight,Type\n";
     var topicProbabilities = zeros(numTopics);
 
     documents.forEach(function(d, i) {
-		d.topicCounts.forEach(function(x, topic) {
-			if (x > 0.0) {
-				graphCSV += d.id + "," + topic + "," + eightDigits(x / d.tokens.length) + ",undirected\n";
-			}
-		});
-	});
+    d.topicCounts.forEach(function(x, topic) {
+      if (x > 0.0) {
+        graphCSV += d.id + "," + topic + "," + eightDigits(x / d.tokens.length) + ",undirected\n";
+      }
+    });
+  });
 
-	d3.select("#graph-dl").attr("href", toURL(graphCSV, "text/csv"));
+  d3.select("#graph-dl").attr("href", toURL(graphCSV, "text/csv"));
 }
 
 function saveState() {
-	var state = "DocID,Word,Topic";
-	documents.forEach(function(d, docID) {
-		d.tokens.forEach(function(token, position) {
-			if (! token.isStopword) {
-				state += docID + ",\"" + token.word + "\"," + token.topic + "\n";
-			}
-		});
-	});
+  var state = "DocID,Word,Topic";
+  documents.forEach(function(d, docID) {
+    d.tokens.forEach(function(token, position) {
+      if (! token.isStopword) {
+        state += docID + ",\"" + token.word + "\"," + token.topic + "\n";
+      }
+    });
+  });
 
-	d3.select("#state-dl").attr("href", toURL(state, "text/csv"));
+  d3.select("#state-dl").attr("href", toURL(state, "text/csv"));
 }
 
 function getStoplistUpload(callback) {
@@ -833,22 +938,22 @@ function queueLoad() {
 queueLoad();
 
 function ready(error, stops, lines) {
-	if (error) { alert("File upload failed. Please try again."); throw error;}
-	else {
-		// Create the stoplist
-		stops.split("\n").forEach(function (w) { stopwords[w] = 1; });
+  if (error) { alert("File upload failed. Please try again."); throw error;}
+  else {
+    // Create the stoplist
+    stops.split("\n").forEach(function (w) { stopwords[w] = 1; });
 
-		// Load documents and populate the vocabulary
-		lines.split("\n").forEach(parseLine);
+    // Load documents and populate the vocabulary
+    lines.split("\n").forEach(parseLine);
 
-		sortTopicWords();
-		displayTopicWords();
-		toggleTopicDocuments(0);
-		//plotGraph();
+    sortTopicWords();
+    displayTopicWords();
+    toggleTopicDocuments(0);
+    //plotGraph();
 
-		plotMatrix();
-		vocabTable();
-		createTimeSVGs();
-		timeSeries();
-	}
+    plotMatrix();
+    vocabTable();
+    createTimeSVGs();
+    timeSeries();
+  }
 }

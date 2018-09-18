@@ -4,10 +4,14 @@ div.sidebar { float: left; width: 25%; }
 div.sidebar div.sidebox { margin: 5px; padding: 10px; }
 
 div.top { background-color: #ddd; margin: 5px; padding: 10px; -moz-border-radius: 10px; border-radius: 10px; }
-form { float: right; padding-right: 20px;}
+div.top #num_topics_control { float:right; }
+
+div.upload { background-color: #ddd; float: right; padding-right: 20px; border-radius: 10px; margin: 5px; }
+div.upload div { margin: 8px; }
+
 
 div#topics div { color: #555; margin-bottom: 10px; padding: 5px; cursor: default;}
-div#topics div.selected { border-right: solid black 2px; font-weight: bold;}
+div#topics div.selected { border-right: solid black 2px; font-weight: bold; }
 div#topics div:hover { background-color: #ccc; }
 
 #tabwrapper { margin-left: 25%; }
@@ -36,5 +40,5 @@ table td { text-align: right; padding: 9px 8px 0px 8px; }
 
 #tooltip { border: solid #ddd 2px; margin:0 2px 0 0; padding:7px 10px; color:#333; border-radius: 4px; background: #FFFFFF; position: absolute; z-index: 10; visibility: hidden; }
 
-input#docs-file-input {width: 180px; }
-input#stops-file-input {width: 180px; }
+input#docs-file-input {}
+input#stops-file-input {}
