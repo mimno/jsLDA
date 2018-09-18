@@ -180,6 +180,7 @@ function reset() {
   topicWeights = zeros(numTopics);
   
   documents = [];
+  d3.selectAll("div.document").remove();
 }
 
 var truncate = function(s) { return s.length > 300 ? s.substring(0, 299) + "..." : s; }
@@ -471,8 +472,8 @@ function reorderDocuments() {
   if (selectedTopic === -1) {
     documents.sort(function(a, b) { return d3.ascending(a.originalOrder, b.originalOrder); });
     d3.selectAll("div.document").data(documents)
-      .style("display", "block")
-      .text(function(d) { return "[" + d.id + "] " + truncate(d.originalText); });
+    .style("display", "block")
+    .text(function(d) { return "[" + d.id + "] " + truncate(d.originalText); });
   }
   else {
     var scores = documents.map(function (doc, i) {
