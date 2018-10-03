@@ -942,7 +942,8 @@ function ready(error, stops, lines) {
   if (error) { alert("File upload failed. Please try again."); throw error;}
   else {
     // Create the stoplist
-    stops.split("\n").forEach(function (w) { stopwords[w] = 1; });
+    console.log(stops);
+    stops.split(/\s+/).forEach(function (w) { console.log(w); stopwords[w] = 1; });
 
     // Load documents and populate the vocabulary
     lines.split("\n").forEach(parseLine);
