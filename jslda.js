@@ -1,3 +1,54 @@
+// Seedable, fast RNGs (random number generator). (JS's internal Math.random is not seedable)
+//
+// Taken from https://github.com/bryc/code/blob/master/jshash/PRNGs.md
+
+// "Mulberry32 is minimalistic generator utilizing a 32-bit state, originally intended for embedded applications.
+// It appears to be very good; the author states it passes all tests of gjrand, and this JavaScript implementation
+// is very fast. But since the state is 32-bit like Xorshift, it's period (how long the random sequence lasts before
+// repeating) is significantly less than those with 128-bit states, but it's still quite large, at around 4 billion."
+function mulberry32(seed) {
+  let a = seed;
+  return () => {
+    a |= 0;
+    a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// "Similar seeds (e.g. a simple seed of 1 and 2) can cause correlations in weaker PRNGs, resulting in the output
+// having similar properties (such as randomly generated levels being similar). To avoid this, it is best practice
+// to initialize PRNGs with a well-distributed seed."
+// "I propose using a seperate hash function to intiailize the entire state. Hash functions are very good at
+//  generating seeds for PRNGs from short strings. A good hash function will generate very different results even
+// when two strings are similar. xmur3 an example based on MurmurHash3's mixing function.
+function xmur3(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = h << 13 | h >>> 19;
+  }
+  return () => {
+    h = Math.imul(h ^ h >>> 16, 2246822507);
+    h = Math.imul(h ^ h >>> 13, 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  };
+}
+
+function getRNG(seed) {
+  const numSeed = xmur3(seed)();
+  const rng = mulberry32(numSeed);
+  return rng;
+}
+
+var random = getRNG("myRNG");
+Math.random = random
+
+function setRandomSeed() {
+    let seed = window.prompt("Reset the RNG with the following seed:", "any string");
+    Math.random = getRNG(seed);
+}
 
 /** This function is copied from stack overflow: http://stackoverflow.com/users/19068/quentin */
 var QueryString = function () {
