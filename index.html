@@ -1,52 +1,196 @@
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-<title>In-browser topic modeling</title>
-<link href='http://fonts.googleapis.com/css?family=Alegreya' rel='stylesheet' type='text/css'>
-<style>
-body { font-family: Alegreya; margin-left: 20%; margin-right: 20%; margin-top: 100px; }
-.links { text-align: center; padding: 10px; }
-.links a { font-size: x-large; margin: 30px; padding: 10px; background-color: #00f; color: #fff; text-decoration: none; -moz-border-radius: 4px; border-radius: 4px; }
-</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Topic Modeling in Your Browser</title>
+<link rel="stylesheet" href="jslda.css">
+<link rel="icon" href="data:,">
 </head>
 <body>
-<a href="https://github.com/mimno/jsLDA"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/38ef81f8aca64bb9a64448d0d70f1308ef5341ab/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6461726b626c75655f3132313632312e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png"></a>
-<h1>jsLDA: In-browser topic modeling</h1>
-<h3>David Mimno</h3>
 
-<p>
-Many people have found topic modeling a useful way to explore large text collections. 
-Unfortunately, running your own models usually requires installing statistical tools like R or <a href="http://mallet.cs.umass.edu">Mallet</a>.
-The goals of this project are to (a) make running topic models easy for anyone with a modern web browser, (b) demonstrate the potential of statistical computing in Javascript and (c) allow tighter integration between models and web-based visualizations.
-</p>
+<header class="site">
+  <div class="brand">
+    <h1>Topic Modeling in Your Browser</h1>
+    <span class="subtitle">jsLDA</span>
+  </div>
+  <nav>
+    <a href="#help">How it works</a>
+    <a href="https://github.com/mimno/jsLDA">Source code</a>
+  </nav>
+</header>
 
-<p class="links">
-<a href="jslda.html">Run a model</a>
-<a href="https://github.com/mimno/jsLDA">Get the source</a>
-</p>
+<section class="setup">
+  <div class="step" id="step-texts">
+    <h2><span class="step-num">1</span> Choose your texts</h2>
+    <p>Choose a folder of plain-text (<code>.txt</code>) files, or a single file with one document per line.</p>
+    <div class="buttons">
+      <label class="button primary">Open a folder&hellip;
+        <input type="file" id="folder-input" webkitdirectory multiple hidden>
+      </label>
+      <label class="button">Open files&hellip;
+        <input type="file" id="files-input" multiple accept=".txt,.text,.tsv,.md,text/plain" hidden>
+      </label>
+      <button type="button" id="example-button" class="link">or try an example: State of the Union addresses</button>
+    </div>
+    <p class="private">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M4 7V5a4 4 0 1 1 8 0v2h1v8H3V7h1zm2 0h4V5a2 2 0 1 0-4 0v2z"/></svg>
+      Your files stay on this computer. Nothing is uploaded; the model runs inside this browser tab.
+    </p>
+    <details class="options">
+      <summary>Options</summary>
+      <div class="option">
+        <label for="passage-words">Split long texts into passages of about</label>
+        <input type="number" id="passage-words" value="500" min="0" step="50"> words
+        <span class="hint">Topic models work best on passages of a few hundred words. 0 keeps each file whole.</span>
+      </div>
+      <div class="option">
+        <span>Stopwords (common words to ignore):</span>
+        <strong id="stoplist-name">common English words</strong>
+        <label class="button small">Choose a list&hellip;
+          <input type="file" id="stoplist-input" accept=".txt,text/plain" hidden>
+        </label>
+        <button type="button" id="stoplist-reset" class="link" hidden>use the default</button>
+        <span class="hint">A plain-text file with one word per line. You can also remove words later in the Vocabulary tab.</span>
+      </div>
+    </details>
+  </div>
 
-<p><b>Instructions:</b></p>
+  <div class="step" id="step-train">
+    <h2><span class="step-num">2</span> Find topics</h2>
+    <div class="option">
+      <label for="num-topics">Number of topics</label>
+      <input type="range" id="num-topics" min="3" max="100" value="25">
+      <output id="num-topics-value" for="num-topics">25</output>
+    </div>
+    <div class="train-controls">
+      <button type="button" id="train-button" class="button primary" disabled>Train</button>
+      <div class="progress" role="progressbar" aria-live="polite">
+        <div class="bar" id="progress-bar"></div>
+        <span id="progress-text">Choose texts first.</span>
+      </div>
+    </div>
+    <p class="hint">Training starts as soon as your texts are loaded. Watch the topics on the left sharpen as the
+      model makes more passes through the texts.</p>
+  </div>
+</section>
 
-<p>When you open the page it will load a file containing documents and a file containing stopwords. The default is a corpus of paragraphs from US State of the Union speeches. It is large enough to get interesting results but small enough to train quickly.</p>
+<p id="status" class="status" hidden></p>
 
-<p>All words have initially been assigned randomly to topics. Click the "Run 50 iterations" button to start training. The iteration count will increase each time the algorithm passes through the dataset.</p>
+<main id="explorer" hidden>
+  <aside class="topics-panel">
+    <h2>Topics</h2>
+    <p class="hint">Click a topic to rank documents by it.</p>
+    <ol id="topic-list"></ol>
+  </aside>
 
-<p>The topics on the right side of the page should now look more interesting. Run more iterations if you would like -- there's probably still a lot of room for improvement after only 50 iterations.</p>
+  <div class="views">
+    <nav class="tabs" role="tablist">
+      <button type="button" role="tab" data-view="docs" class="selected">Documents</button>
+      <button type="button" role="tab" data-view="corr">Topic correlations</button>
+      <button type="button" role="tab" data-view="vocab">Vocabulary</button>
+      <button type="button" role="tab" data-view="meta" id="meta-tab" hidden>By metadata</button>
+      <button type="button" role="tab" data-view="save">Save results</button>
+    </nav>
 
-<p>Once you're satisfied with the model, you can click on a topic from the list on the right to sort documents in descending order by their use of that topic. Proportions are weighted so that longer documents will come first. You can also explore correlations between topics by clicking the "Topic Correlations" tab. Pairs of topics that are correlated will appear as blue circles, pairs that are anti-correlated will appear as red circles.</p>
+    <section class="view" id="view-docs">
+      <p class="hint" id="docs-heading"></p>
+      <div id="doc-list"></div>
+      <button type="button" id="more-docs" class="button small" hidden>Show more</button>
+    </section>
 
-<p><b>Using your own documents:</b></p>
+    <section class="view" id="view-corr" hidden>
+      <p class="hint">Each circle compares two topics. <span class="swatch pos"></span> Blue circles: the topics appear
+        in the same documents more often than you'd expect by chance. <span class="swatch neg"></span> Red: less often.
+        Bigger circles are stronger. Hover over a circle to see which topics it compares.</p>
+      <div id="corr-plot"></div>
+    </section>
 
-<p>If you would like to explore your own collection, you can upload documents and stopword list files directly to the browser. No data is sent over the internet. Remember that "document" really means "segment of text". A few hundred words is a good length; longer passages tend to shift their topical focus, making inference more difficult. The format for the documents file is one document per line, with each line consisting of</p>
+    <section class="view" id="view-vocab" hidden>
+      <div class="vocab-controls">
+        <label><input type="checkbox" id="show-stopwords"> Show stopwords</label>
+        <label><input type="checkbox" id="vocab-by-topic" disabled> Only words in the selected topic</label>
+      </div>
+      <p class="hint">Specificity is 1 for a word that appears in only one topic and 0 for a word spread evenly across
+        all topics. Words that are frequent but not specific are good candidates to remove.</p>
+      <table id="vocab-table">
+        <thead><tr><th>Word</th><th class="num">Count</th><th>Specificity</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
 
-<pre>[doc ID] [tab] [label] [tab] [text...]</pre>
+    <section class="view" id="view-meta" hidden>
+      <p class="hint" id="meta-hint"></p>
+      <div id="meta-plots"></div>
+    </section>
 
-<p>(this is the default format for Mallet). The values in the "label" field are treated as a sequence of categories, which are shown in the "timeseries" tab in the order they appear in the documents file.</p>
+    <section class="view" id="view-save" hidden>
+      <p class="hint">Save the current model as spreadsheet files. They are created here in your browser, are
+        comma-separated (CSV), and open in any spreadsheet program.</p>
+      <ul class="exports">
+        <li><button type="button" class="link" data-export="docTopics">Document topics</button>
+          &mdash; the share of each topic in each document</li>
+        <li><button type="button" class="link" data-export="topicKeys">Topic summaries</button>
+          &mdash; the top words of each topic</li>
+        <li><button type="button" class="link" data-export="topicWords">Topic words</button>
+          &mdash; the probability of every word in every topic</li>
+        <li><button type="button" class="link" data-export="correlations">Topic correlations</button>
+          &mdash; the numbers behind the correlation plot</li>
+        <li><button type="button" class="link" data-export="gephi">Document&ndash;topic network</button>
+          &mdash; an edge list for network tools such as Gephi</li>
+        <li><button type="button" class="link" data-export="state">Sampling state</button>
+          &mdash; the topic of every word in every document</li>
+      </ul>
+    </section>
+  </div>
+</main>
 
-<p>The format for stopwords is one word per line. The "Vocabulary" tab allows you to dynamically add and remove stopwords, and shows which words appear in many topics and which are more specific. Unicode is supported, so most languages that have meaningful whitespace (ie not CJK) should work.</p>
+<section id="help" class="help">
+  <h2>How it works</h2>
 
-<p>To save data from a trained model, go to the downloads tab. The links on this page generate files from your browser, again, no data is sent over the internet.</p>
+  <h3>What is topic modeling?</h3>
+  <p>A topic model finds groups of words that tend to appear together in the same documents. Each group is a
+    &ldquo;topic&rdquo;. Every document is described as a mix of topics. This page uses latent Dirichlet allocation
+    (LDA), trained by Gibbs sampling: it starts with every word in a random topic, then repeatedly revisits each word
+    and reassigns it based on the other words around it.</p>
 
-<p>jsLDA works in Chrome, Safari, and Firefox.</p>
+  <h3>Preparing your texts</h3>
+  <ul>
+    <li><strong>Plain text only.</strong> Convert PDFs and Word files to <code>.txt</code> first. Other files in a
+      folder are skipped.</li>
+    <li><strong>Length matters.</strong> Topic models work best on passages of a paragraph or a few pages. Longer
+      texts are split into passages automatically (see Options), named <code>moby-dick-1.txt</code>,
+      <code>moby-dick-2.txt</code>, and so on.</li>
+    <li><strong>One document per line.</strong> You can also open a single file where each line is
+      <code>id&#9;label&#9;text</code>, separated by tabs, as used by MALLET.</li>
+    <li><strong>Metadata.</strong> Documents can carry a label: the second column of a one-document-per-line file,
+      or the subfolder a file is in (<code>fiction/moby-dick.txt</code> is labeled <code>fiction</code>). With
+      labels, a &ldquo;By metadata&rdquo; tab compares topics across them: as a time line if the labels are years or
+      dates (like <code>1914</code> or <code>2020-03-15</code>), otherwise as bar charts.</li>
+    <li><strong>Languages.</strong> Words are split on spaces and punctuation, so languages written without spaces
+      (such as Chinese or Japanese) need to be segmented into words first.</li>
+  </ul>
 
+  <h3>Reading the results</h3>
+  <p>Topics are listed by their top words, most common first. Click a topic to see the documents that use it most.
+    If a topic is full of uninteresting words, remove them in the Vocabulary tab; training continues without them.
+    Try a few different numbers of topics: there is no single right answer.</p>
+
+  <h3>Privacy</h3>
+  <p>Everything runs in this browser tab. Your files are read by the page but never sent anywhere, and closing the
+    tab discards them. Save anything you want to keep from the Save results tab.</p>
+
+  <p class="credit">By <a href="https://mimno.infosci.cornell.edu/">David Mimno</a>.
+    For larger collections, try the <a href="https://github.com/mimno/topic-modeling-tool">Topic Modeling Tool</a>,
+    an installable program built on MALLET.</p>
+</section>
+
+<div id="tooltip" role="tooltip"></div>
+
+<script src="vendor/d3.v7.min.js"></script>
+<script src="stopwords-en.js"></script>
+<script src="corpus.js"></script>
+<script src="lda-model.js"></script>
+<script src="jslda.js"></script>
 </body>
 </html>

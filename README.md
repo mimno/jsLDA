@@ -1,45 +1,79 @@
-jsLDA
-=====
+Topic Modeling in Your Browser (jsLDA)
+======================================
 
-An implementation of latent Dirichlet allocation in javascript. A [live demonstration](http://mimno.infosci.cornell.edu/jsLDA/jslda.html) is available.
+Topic modeling that runs entirely in a web browser: nothing to install, and
+your texts never leave your computer. Try it at
+[mimno.infosci.cornell.edu/jsLDA](http://mimno.infosci.cornell.edu/jsLDA/).
 
-Instructions:
-------------
+Using it
+--------
 
-When you first load the page, it will request a file containing documents and a file containing stopwords. The default example is a corpus of paragraphs from US State of the Union speeches.
+1. **Choose your texts.** Open a folder of plain-text (`.txt`) files, or a
+   single file with one document per line (see below). Or try the example
+   collection of State of the Union addresses.
+2. **Find topics.** Training starts automatically and runs in the background.
+   Watch the topics sharpen, then click **Train more** if they are still
+   changing.
+3. **Explore.** Click a topic to rank documents by it. The other tabs show
+   which topics appear together, the vocabulary (where you can remove
+   unhelpful words), topics by metadata (for labeled documents), and
+   spreadsheets you can save.
 
-Click the "Run 50 iterations" button to start training. The browser may appear to freeze for a while.
-Initially all words have been assigned randomly to topics.
-We train a model by cycling through every word token in the documents and sampling a topic for that word.
-An "iteration" corresponds to one pass through the documents.
+Long texts are split into passages of about 500 words, named
+`moby-dick-1.txt`, `moby-dick-2.txt`, and so on, because topic models work
+best on passages of a paragraph or a few pages. Change or turn this off under
+**Options**.
 
-The topics on the left side of the page should now look more interesting. Run more iterations if you would like -- there's probably still a lot of room for improvement after only 50 iterations.
+### One document per line
 
-Once you're satisfied with the model, you can click on a topic from the list on the right to sort documents in descending order by their use of that topic. Proportions are weighted so that longer documents will come first.
-
-You can also explore correlations between topics by clicking the "Topic Correlations" tab. This view shows a force directed layout with connections between topics that have correlations above a certain threshold. You can control this threshold with the slider: a low cutoff will display more edges, while a high cutoff will remove all but the strongest correlations.
-
-Topic correlations are actually pointwise mutual information scores. This score measures whether two topics occur
-in the same document more often than we would expect by chance. Previous versions of this script calculated correlations
-on logratios; PMI is simpler to calculate.
-
-Using your own corpus:
----------------------
-
-To use your own corpus, the best way is to place the files in this repository in the document root of a web server.
-Replace the files `documents.txt` and `stoplist.txt` with your own corpus and stop list.
-The documents file is a tab-delimited text file with one document per line. Each line has three fields:
+A single file where each line is
 
     [doc ID] [tab] [label] [tab] [text...]
 
-(this is the default format for Mallet). The "label" field is currently unused, but I plan to support timestamps, labels, etc.
+is read as one document per line (this is MALLET's format).
 
-The format for stopwords is one word per line. The "Vocabulary" tab may be useful in customizing a stoplist. Unicode is supported, so most languages that have meaningful whitespace (ie not CJK) should work.
+### Metadata
 
-The page works best in Chrome. Safari and Firefox work too, but may be considerably slower. It doesn't seem to work in IE.
+Documents can carry a label: the second column of a one-document-per-line
+file, or the subfolder a file is in (`fiction/moby-dick.txt` is labeled
+`fiction`). With labels, the **By metadata** tab compares topics across them:
+as a time line if the labels are years or dates such as `1914` or
+`2020-03-15`, and otherwise as bar charts, one per topic.
 
-Download results:
-----------------
+### Stopwords
 
-You can create reports about your topic model. Hit the `Downloads` tab.
-Reports are in CSV format. The `sampling state` file contains the same information as a Mallet state file, but in a more compact format. 
+Common English words are removed by default. Under **Options** you can choose
+your own list (one word per line). Words of two letters or fewer are always
+ignored.
+
+Running your own copy
+---------------------
+
+Copy this folder to any web server, or open `index.html` directly from your
+disk. (Opened from disk, everything works except loading the built-in
+example.) There is no build step.
+
+| File | Contents |
+|------|----------|
+| `index.html`, `jslda.css` | The page |
+| `jslda.js` | Page behavior and visualizations |
+| `lda-model.js` | The topic model (Gibbs sampling), run in a Web Worker |
+| `corpus.js` | Reading files and splitting texts into passages |
+| `stopwords-en.js` | MALLET's English stoplist |
+| `documents.txt`, `stoplist.txt` | The example collection |
+| `vendor/d3.v7.min.js` | [D3](https://d3js.org) for charts |
+
+Run the tests with Node 18 or later:
+
+    npm test
+
+Saving results
+--------------
+
+The **Save results** tab creates CSV files in the browser: document-topic
+proportions, topic summaries, topic-word probabilities, topic correlations,
+a document-topic edge list for network tools such as Gephi, and the full
+sampling state.
+
+Topic correlations are pointwise mutual information scores: whether two
+topics occur in the same documents more often than expected by chance.
